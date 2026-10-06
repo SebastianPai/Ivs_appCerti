@@ -64,9 +64,10 @@ class SolicitudResource extends Resource
         return (bool) Auth::user()?->hasAnyRole(['admin', 'cliente']);
     }
 
+    /** El taller crea las suyas; el admin puede crear a nombre de un taller. */
     public static function canCreate(): bool
     {
-        return (bool) Auth::user()?->hasRole('cliente');
+        return (bool) Auth::user()?->hasAnyRole(['admin', 'cliente']);
     }
 
     public static function canView(Model $record): bool

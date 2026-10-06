@@ -10,6 +10,7 @@ use App\Models\RegulatorBrand;
 use App\Models\ServiceType;
 use App\Models\Solicitud;
 use App\Models\Technology;
+use App\Models\User;
 use App\Models\Vehicle;
 use App\Models\VehicleBrand;
 use App\Models\VehicleIdentificationType;
@@ -29,6 +30,7 @@ use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Components\Wizard\Step;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Auth;
 
 /**
  * Formulario de la solicitud del taller.
@@ -69,6 +71,15 @@ class SolicitudForm
     private static function vehiculo(): array
     {
         return [
+            // Solo el admin elige el taller; el taller siempre crea a su nombre
+            Select::make('user_id')
+                ->label('Taller')
+                ->options(fn () => User::role('cliente')->orderBy('name')->pluck('name', 'id'))
+                ->searchable()
+                ->required()
+                ->visible(fn (string $operation) => $operation === 'create' && (bool) Auth::user()?->hasRole('admin'))
+                ->helperText('Está creando la solicitud a nombre de este taller.'),
+
             self::grid([
                 Select::make('vehicle_identification_type_id')
                     ->label('Identificar por')

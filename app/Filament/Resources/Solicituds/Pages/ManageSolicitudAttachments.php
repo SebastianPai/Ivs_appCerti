@@ -51,8 +51,8 @@ class ManageSolicitudAttachments extends Page implements HasForms
         $porNombre = $this->record->adjuntos->keyBy('nombre_adjunto');
 
         $this->form->fill([
-            'fijos' => collect(array_keys(AttachmentForm::DOCUMENTOS))
-                ->map(fn ($nombre) => $porNombre[$nombre]->ruta_archivo ?? null)
+            ...collect(array_keys(AttachmentForm::DOCUMENTOS))
+                ->mapWithKeys(fn ($nombre, $i) => [AttachmentForm::campo($i) => $porNombre[$nombre]->ruta_archivo ?? null])
                 ->all(),
             'adicionales' => $this->record->adjuntos
                 ->reject(fn ($a) => array_key_exists($a->nombre_adjunto, AttachmentForm::DOCUMENTOS))
@@ -78,7 +78,7 @@ class ManageSolicitudAttachments extends Page implements HasForms
             foreach ($nombresFijos as $i => $nombre) {
                 $this->record->adjuntos()->updateOrCreate(
                     ['nombre_adjunto' => $nombre],
-                    ['ruta_archivo' => self::ruta($state['fijos'][$i] ?? null)],
+                    ['ruta_archivo' => self::ruta($state[AttachmentForm::campo($i)] ?? null)],
                 );
             }
 
@@ -121,7 +121,7 @@ class ManageSolicitudAttachments extends Page implements HasForms
 
     private function notificar(bool $eraDevuelta): void
     {
-        $taller = Auth::user();
+        $taller = $this->record->user;
         $placa = $this->record->placa();
 
         Correo::enviar($taller->email, "✅ Documentación recibida - Placa: {$placa}", 'emails.confirmacion_carga', [

@@ -24,6 +24,12 @@ class AttachmentForm
         'Adjunto Prueba hidrostática *' => true,
     ];
 
+    /** Nombre del campo del documento fijo número $i (doc_0, doc_1, ...). */
+    public static function campo(int $i): string
+    {
+        return "doc_{$i}";
+    }
+
     public static function etiqueta(string $nombre): string
     {
         return trim(str_replace(['Adjunto ', ' *', ' Opcional'], ['', '', ' (opcional)'], $nombre));
@@ -54,7 +60,9 @@ class AttachmentForm
 
         $fijos = [];
         foreach (array_keys(self::DOCUMENTOS) as $i => $nombre) {
-            $fijos[] = self::archivo("fijos.{$i}", $directorio)
+            // Ojo: el nombre no puede llevar punto ("fijos.0"): Filament valida tipo/tamaño con ese
+            // nombre y un punto lo vuelve una ruta anidada, con lo que la validación no se aplicaba.
+            $fijos[] = self::archivo(self::campo($i), $directorio)
                 ->label(self::etiqueta($nombre))
                 ->required(self::DOCUMENTOS[$nombre]);
         }

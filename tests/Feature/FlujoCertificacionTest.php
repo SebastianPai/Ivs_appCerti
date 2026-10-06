@@ -129,15 +129,15 @@ class FlujoCertificacionTest extends TestCase
         $this->assertTrue($solicitud->verificacion()->first()->conflicto_interes);
 
         // --- Paso 2: chip y fotos
-        $fotos = collect(range(0, 3))->map(fn () => UploadedFile::fake()->image('foto.jpg'))->all();
+        $fotos = collect(range(0, 3))->mapWithKeys(fn ($i) => ["foto_{$i}" => UploadedFile::fake()->image('foto.jpg')])->all();
 
         Livewire::test(EvaluadorView::class, ['record' => $solicitud->id])
-            ->fillForm(['chip_codigo' => 'NO-EXISTE', 'fotos' => $fotos])
+            ->fillForm(['chip_codigo' => 'NO-EXISTE', ...$fotos])
             ->callAction('continuar')
             ->assertHasErrors(['data.chip_codigo']);
 
         Livewire::test(EvaluadorView::class, ['record' => $solicitud->id])
-            ->fillForm(['chip_codigo' => ' chip-001 ', 'fotos' => $fotos])
+            ->fillForm(['chip_codigo' => ' chip-001 ', ...$fotos])
             ->callAction('continuar')
             ->assertHasNoErrors()
             ->assertRedirect("/ivs/evaluacion/solicitudes/{$solicitud->id}/checklist");

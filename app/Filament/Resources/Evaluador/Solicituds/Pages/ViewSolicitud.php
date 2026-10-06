@@ -82,7 +82,7 @@ class ViewSolicitud extends Page implements HasForms
         $this->form->fill([
             'chip_codigo' => $verificacion?->chip?->codigo,
             'observaciones' => $verificacion?->observaciones,
-            'fotos' => collect(self::FOTOS_OBLIGATORIAS)->map(fn ($n) => $fotos[$n] ?? null)->all(),
+            ...collect(self::FOTOS_OBLIGATORIAS)->mapWithKeys(fn ($n, $i) => ["foto_{$i}" => $fotos[$n] ?? null])->all(),
             'fotos_extra' => $fotos->except(self::FOTOS_OBLIGATORIAS)
                 ->map(fn ($ruta, $nombre) => ['nombre' => $nombre, 'ruta' => $ruta])
                 ->values()
@@ -97,7 +97,8 @@ class ViewSolicitud extends Page implements HasForms
 
         $fotosFijas = [];
         foreach (self::FOTOS_OBLIGATORIAS as $i => $nombre) {
-            $fotosFijas[] = AttachmentForm::archivo("fotos.{$i}", $directorio)
+            // Sin punto en el nombre: con "fotos.0" Filament no aplicaba la validación de tipo/tamaño
+            $fotosFijas[] = AttachmentForm::archivo("foto_{$i}", $directorio)
                 ->label($nombre)
                 ->required()
                 ->helperText(null);
@@ -267,7 +268,7 @@ class ViewSolicitud extends Page implements HasForms
                     $verificacion->fotos()->delete();
 
                     $fotos = collect(self::FOTOS_OBLIGATORIAS)
-                        ->mapWithKeys(fn ($nombre, $i) => [$nombre => $data['fotos'][$i] ?? null])
+                        ->mapWithKeys(fn ($nombre, $i) => [$nombre => $data["foto_{$i}"] ?? null])
                         ->merge(collect($data['fotos_extra'] ?? [])->pluck('ruta', 'nombre'));
 
                     foreach ($fotos as $nombre => $ruta) {

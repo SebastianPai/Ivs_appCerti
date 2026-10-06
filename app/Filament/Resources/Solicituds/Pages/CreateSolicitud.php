@@ -102,7 +102,10 @@ class CreateSolicitud extends CreateRecord
     protected function handleRecordCreation(array $data): Model
     {
         $data = SolicitudForm::guardarVehiculo($data);
-        $data['user_id'] = Auth::id();
+        // El taller crea a su nombre; el admin elige el taller en el formulario
+        if (! Auth::user()->hasRole('admin') || empty($data['user_id'])) {
+            $data['user_id'] = Auth::id();
+        }
 
         return static::getModel()::create($data);
     }
@@ -121,8 +124,8 @@ class CreateSolicitud extends CreateRecord
     {
         Cache::forget($this->claveBorrador());
 
-        $solicitud = $this->record->load('vehicle');
-        $taller = Auth::user();
+        $solicitud = $this->record->load(['vehicle', 'user']);
+        $taller = $solicitud->user;
         $placa = $solicitud->placa();
 
         Correo::enviar($taller->email, "Solicitud iniciada - Placa: {$placa}", 'emails.solicitud_iniciada', [
