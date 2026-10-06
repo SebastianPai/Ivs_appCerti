@@ -32,11 +32,8 @@ abstract class TestCase extends BaseTestCase
         $this->seed(RoleSeeder::class);
         Filament::setCurrentPanel('admin');
 
-        // API de departamentos/ciudades simulada
-        Http::fake([
-            'api-colombia.com/api/v1/Department' => Http::response([['id' => 5, 'name' => 'Antioquia']]),
-            'api-colombia.com/api/v1/Department/5/cities' => Http::response([['id' => 1, 'name' => 'Medellín']]),
-        ]);
+        // Ninguna prueba debe salir a internet
+        Http::preventStrayRequests();
     }
 
     protected function usuario(string $rol, array $attrs = []): User

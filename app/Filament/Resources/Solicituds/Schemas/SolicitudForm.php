@@ -385,9 +385,11 @@ class SolicitudForm
 
     private static function esChasis(Get $get): bool
     {
-        $tipo = $get('vehicle_identification_type_id');
+        // Se llama varias veces por render (etiqueta, placeholder, validación): una sola consulta
+        static $chasisId = false;
+        $chasisId = $chasisId === false ? VehicleIdentificationType::where('nombre', 'Chasis')->value('id') : $chasisId;
 
-        return $tipo && VehicleIdentificationType::whereKey($tipo)->value('nombre') === 'Chasis';
+        return $chasisId !== null && (string) $get('vehicle_identification_type_id') === (string) $chasisId;
     }
 
     private static function autocompletarVehiculo(?string $identificacion, Get $get, Set $set): void

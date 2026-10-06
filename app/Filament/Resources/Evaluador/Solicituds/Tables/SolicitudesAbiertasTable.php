@@ -9,11 +9,15 @@ use Filament\Actions\Action;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Auth;
 
 class SolicitudesAbiertasTable
 {
     public static function configure(Table $table): Table
     {
+        // Solo el evaluador inspecciona; el admin ve en modo consulta
+        $puedeEvaluar = fn (Solicitud $record) => $record->esEvaluable() && (bool) Auth::user()?->hasRole('evaluador');
+
         return $table
             ->modifyQueryUsing(fn (Builder $query) => $query->with(['user', 'serviceType', 'vehicle.brand', 'vehicle.model']))
             // Lo más antiguo primero: se atiende por orden de llegada
@@ -64,17 +68,17 @@ class SolicitudesAbiertasTable
                     ->icon('heroicon-o-play')
                     ->color('success')
                     ->button()
-                    ->visible(fn (Solicitud $record) => $record->esEvaluable())
+                    ->visible($puedeEvaluar)
                     ->url(fn (Solicitud $record) => SolicitudResource::getUrl('verificacion', ['record' => $record])),
 
                 Action::make('ver')
                     ->label('Ver')
                     ->icon('heroicon-o-eye')
                     ->color('gray')
-                    ->visible(fn (Solicitud $record) => ! $record->esEvaluable())
+                    ->visible(fn (Solicitud $record) => ! $puedeEvaluar($record))
                     ->url(fn (Solicitud $record) => SolicitudResource::getUrl('view', ['record' => $record])),
             ])
-            ->recordUrl(fn (Solicitud $record) => $record->esEvaluable()
+            ->recordUrl(fn (Solicitud $record) => $puedeEvaluar($record)
                 ? SolicitudResource::getUrl('verificacion', ['record' => $record])
                 : SolicitudResource::getUrl('view', ['record' => $record]))
             ->emptyStateHeading('Sin solicitudes en esta bandeja')

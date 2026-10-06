@@ -47,7 +47,7 @@ class VerificacionPrevia extends Page implements HasForms
     {
         $this->record = $this->resolveRecord($record);
 
-        if (! $this->record->esEvaluable()) {
+        if (! $this->record->esEvaluable() || ! Auth::user()->hasRole('evaluador')) {
             Notification::make()->title('Esta solicitud no está pendiente de evaluación')->warning()->send();
             $this->redirect(SolicitudResource::getUrl('view', ['record' => $this->record]));
 

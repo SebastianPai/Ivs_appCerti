@@ -2,34 +2,31 @@
 
 namespace App\Services;
 
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Http;
-
 /**
- * Departamentos y ciudades desde api-colombia.com, cacheados para no llamar a la API
- * en cada render del formulario (antes cada tecla en un campo "live" hacía peticiones HTTP).
+ * Departamentos y municipios de Colombia desde database/data/colombia.json
+ * (descargado de api-colombia.com). Se lee del disco y no de internet: la llamada
+ * a la API fallaba con XAMPP (sin certificados SSL) y además hacía lento el
+ * formulario, porque se repetía en cada cambio de un campo.
  *
- * Las opciones usan el NOMBRE como clave, así lo que se guarda en BD es legible
- * (antes se guardaba el id de la API, p.ej. "769", y eso se mostraba al evaluador).
+ * Las opciones usan el NOMBRE como clave, así lo que se guarda en BD es legible.
  */
 class ColombiaGeo
 {
-    private const BASE = 'https://api-colombia.com/api/v1';
+    /** @var array<int, array{id:int,nombre:string,ciudades:array<int,string>}>|null */
+    private static ?array $datos = null;
 
-    /** @return array<int, array{id:int,name:string}> */
-    private static function departamentosRaw(): array
+    private static function datos(): array
     {
-        return self::rememberIfNotEmpty('colombia_departamentos', fn () => self::get('/Department'));
+        return self::$datos ??= json_decode(
+            file_get_contents(database_path('data/colombia.json')),
+            true,
+        );
     }
 
     /** @return array<string, string> nombre => nombre */
     public static function departamentos(): array
     {
-        return collect(self::departamentosRaw())
-            ->pluck('name')
-            ->sort()
-            ->mapWithKeys(fn ($n) => [$n => $n])
-            ->all();
+        return collect(self::datos())->mapWithKeys(fn ($d) => [$d['nombre'] => $d['nombre']])->all();
     }
 
     /** @return array<string, string> nombre => nombre */
@@ -39,53 +36,11 @@ class ColombiaGeo
             return [];
         }
 
-        // Compatibilidad con registros viejos que guardaron el id numérico
-        $dep = collect(self::departamentosRaw())->first(
-            fn ($d) => $d['name'] === $departamento || (string) $d['id'] === $departamento
+        // Compatibilidad con registros viejos que guardaron el id numérico de la API
+        $dep = collect(self::datos())->first(
+            fn ($d) => $d['nombre'] === $departamento || (string) $d['id'] === $departamento
         );
 
-        if (! $dep) {
-            return [];
-        }
-
-        $ciudades = self::rememberIfNotEmpty(
-            "colombia_ciudades_{$dep['id']}",
-            fn () => self::get("/Department/{$dep['id']}/cities")
-        );
-
-        return collect($ciudades)
-            ->pluck('name')
-            ->sort()
-            ->mapWithKeys(fn ($n) => [$n => $n])
-            ->all();
-    }
-
-    private static function get(string $path): array
-    {
-        try {
-            $response = Http::timeout(6)->acceptJson()->get(self::BASE.$path);
-
-            return $response->successful() ? (array) $response->json() : [];
-        } catch (\Throwable $e) {
-            report($e);
-
-            return [];
-        }
-    }
-
-    /** No cachear respuestas vacías (si la API falla, se reintenta en la próxima carga). */
-    private static function rememberIfNotEmpty(string $key, \Closure $callback): array
-    {
-        if ($cached = Cache::get($key)) {
-            return $cached;
-        }
-
-        $value = $callback();
-
-        if (! empty($value)) {
-            Cache::put($key, $value, now()->addDays(30));
-        }
-
-        return $value;
+        return $dep ? array_combine($dep['ciudades'], $dep['ciudades']) : [];
     }
 }
