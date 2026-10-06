@@ -27,6 +27,17 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 class Chip extends Model
 {
+    use Concerns\Auditable;
+
+    protected function describirAuditoria(string $evento, array $cambios): ?string
+    {
+        return "Chip {$this->codigo} ".match ($evento) {
+            'creado' => 'registrado',
+            'eliminado' => 'eliminado',
+            default => 'modificado: '.implode(', ', array_keys($cambios)),
+        };
+    }
+
     protected $fillable = [
         'codigo',
         'activo',

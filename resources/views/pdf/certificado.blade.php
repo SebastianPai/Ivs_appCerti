@@ -54,7 +54,7 @@
                 <td width="50%">
                     <span class="label">Servicio:</span> {{ $record->serviceType?->nombre ?? '—' }}<br>
                     <span class="label">Sistema:</span> {{ $record->combustionSystem?->nombre ?? '—' }}<br>
-                    <span class="label">Vencimiento:</span> {{ $aprobacion->copy()->addYear()->format('Y-m-d') }}
+                    <span class="label">Vencimiento:</span> {{ ($record->vence_el ?? $aprobacion->copy()->addYear())->format('Y-m-d') }}
                 </td>
             </tr>
         </table>

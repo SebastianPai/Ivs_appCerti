@@ -51,7 +51,46 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 class SolicitudVerificacion extends Model
 {
+    use Concerns\Auditable;
+
     protected $table = 'solicitud_verificaciones';
+
+    /** El checklist se guarda muchas veces mientras se llena: solo cuentan los cambios de estado. */
+    protected array $noAuditar = ['datos_checklist', 'ip', 'user_agent'];
+
+    public const ESTADOS = [
+        'iniciada' => 'iniciada',
+        'validada' => 'Filtro de seguridad completado (declaración y GPS)',
+        'en_progreso' => 'Chip y fotos de campo registrados',
+        'enviada' => 'Evaluación enviada a revisión',
+        'devuelta' => 'Inspección suspendida: devuelta al taller',
+        'aprobada' => 'Inspección aprobada por el revisor',
+        'rechazada' => 'Inspección rechazada',
+    ];
+
+    protected function eventoAuditoria(string $evento, array $cambios): string
+    {
+        return 'inspeccion';
+    }
+
+    protected function describirAuditoria(string $evento, array $cambios): ?string
+    {
+        if ($evento === 'eliminado') {
+            return 'Inspección eliminada';
+        }
+
+        if (array_key_exists('estado', $cambios) || $evento === 'creado') {
+            return self::ESTADOS[$this->estado] ?? "Inspección: {$this->estado}";
+        }
+
+        $campos = array_keys($cambios);
+
+        return 'Inspección actualizada: '.implode(', ', array_map(fn ($c) => match ($c) {
+            'id_chip' => 'chip',
+            'lat', 'lng', 'accuracy' => 'ubicación',
+            default => $c,
+        }, $campos));
+    }
     
     protected $fillable = [
         'solicitud_id',
@@ -63,6 +102,7 @@ class SolicitudVerificacion extends Model
         'conflicto_interes',
         'estado',
         'verificada_en',
+        'sincronizada_en',
         'ip',
         'user_agent',
         'id_chip',
@@ -72,6 +112,7 @@ class SolicitudVerificacion extends Model
     protected $casts = [
         'conflicto_interes' => 'boolean',
         'verificada_en' => 'datetime',
+        'sincronizada_en' => 'datetime',
         'datos_checklist' => 'array',
     ];
 

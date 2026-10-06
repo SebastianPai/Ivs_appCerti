@@ -2,9 +2,11 @@
 
 namespace App\Filament\Resources\Solicituds\Pages;
 
+use App\Enums\EstadoSolicitud;
 use App\Filament\Resources\Evaluador\Solicituds\SolicitudResource as EvaluadorSolicitudResource;
 use App\Filament\Resources\Solicituds\Schemas\SolicitudForm;
 use App\Filament\Resources\Solicituds\SolicitudResource;
+use App\Models\Solicitud;
 use App\Support\Correo;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
@@ -14,6 +16,7 @@ use Filament\Schemas\Components\Component;
 use Filament\Schemas\Components\Wizard;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 
 class CreateSolicitud extends CreateRecord
@@ -55,6 +58,19 @@ class CreateSolicitud extends CreateRecord
 
     protected function fillForm(): void
     {
+        if ($origen = $this->solicitudARenovar()) {
+            $this->form->fill($this->datosDeRenovacion($origen));
+
+            Notification::make()
+                ->title('Renovación del certificado '.$origen->codigo)
+                ->body('Copiamos los datos del vehículo, el propietario y los equipos. Revise que todo siga igual, en especial los cilindros y la prueba hidrostática.')
+                ->info()
+                ->persistent()
+                ->send();
+
+            return;
+        }
+
         $borrador = Cache::get($this->claveBorrador());
 
         if (! is_array($borrador) || $borrador === []) {
@@ -71,6 +87,41 @@ class CreateSolicitud extends CreateRecord
             ->body('Puede continuar donde iba. Si prefiere, use «Empezar de cero».')
             ->info()
             ->send();
+    }
+
+    // ------------------------------------------------------------------
+    // Renovación: /solicitudes/create?desde={id} copia los datos de un certificado aprobado.
+    // ------------------------------------------------------------------
+
+    private function solicitudARenovar(): ?Solicitud
+    {
+        $id = request()->integer('desde');
+
+        return $id ? SolicitudResource::getEloquentQuery()
+            ->where('estado', EstadoSolicitud::Aprobada->value)
+            ->with(['vehicle', 'regulators', 'cilindros'])
+            ->find($id) : null;
+    }
+
+    private function datosDeRenovacion(Solicitud $origen): array
+    {
+        return [
+            ...$origen->only([
+                'user_id', 'service_type_id', 'vehicle_identification_type_id', 'vehicle_identification',
+                'owner_document_type', 'owner_document', 'owner_nombre', 'owner_apellido', 'owner_direccion',
+                'owner_departamento', 'owner_ciudad', 'owner_telefono', 'owner_email',
+                'combustion_system_id', 'application_type_id', 'technology_id',
+            ]),
+            ...SolicitudForm::datosVehiculo($origen->vehicle),
+            'regulators' => $origen->regulators->map(fn ($r) => $r->only(['brand_id', 'numero_serie']))->all(),
+            'cilindros' => $origen->cilindros->map(fn ($c) => [
+                'brand_id' => $c->brand_id,
+                'numero_serie' => $c->numero_serie,
+                'capacidad' => $c->capacidad,
+                'fecha_fabricacion' => $c->fecha_fabricacion ? Carbon::parse($c->fecha_fabricacion)->toDateString() : null,
+                'fecha_prueba' => $c->fecha_prueba ? Carbon::parse($c->fecha_prueba)->toDateString() : null,
+            ])->all(),
+        ];
     }
 
     /** Livewire lo llama cada vez que cambia un campo del formulario. */
@@ -128,14 +179,14 @@ class CreateSolicitud extends CreateRecord
         $taller = $solicitud->user;
         $placa = $solicitud->placa();
 
-        Correo::enviar($taller->email, "Solicitud iniciada - Placa: {$placa}", 'emails.solicitud_iniciada', [
+        Correo::enviar($taller, 'solicitud_creada', "Solicitud iniciada - Placa: {$placa}", 'emails.solicitud_iniciada', [
             'user_name' => $taller->name,
             'placa' => $placa,
             'url_adjuntos' => $this->getResource()::getUrl('attachments', ['record' => $solicitud]),
         ]);
 
         foreach ($taller->evaluadores()->get() as $evaluador) {
-            Correo::enviar($evaluador->email, "🔔 Nueva solicitud del taller {$taller->name}", 'emails.nueva_solicitud_evaluador', [
+            Correo::enviar($evaluador, 'solicitud_creada', "🔔 Nueva solicitud del taller {$taller->name}", 'emails.nueva_solicitud_evaluador', [
                 'evaluador_name' => $evaluador->name,
                 'cliente_name' => $taller->name,
                 'placa' => $placa,

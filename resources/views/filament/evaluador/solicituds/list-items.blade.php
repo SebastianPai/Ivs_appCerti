@@ -4,7 +4,7 @@
     @endif
     @foreach ($items as $index => $item)
         @php
-            $url = filled($item->ruta_archivo ?? null) ? \Illuminate\Support\Facades\Storage::disk('public')->url($item->ruta_archivo) : null;
+            $url = \App\Support\Archivo::url($item->ruta_archivo ?? null);
             $extension = pathinfo($item->ruta_archivo ?? '', PATHINFO_EXTENSION);
             $isImage = in_array(strtolower($extension), ['jpg', 'jpeg', 'png', 'webp', 'gif']);
         @endphp

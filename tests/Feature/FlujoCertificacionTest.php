@@ -103,6 +103,7 @@ class FlujoCertificacionTest extends TestCase
     public function test_flujo_completo_evaluador_y_revisor_hasta_el_certificado(): void
     {
         Storage::fake('public');
+        Storage::fake('local');
         SystemSetting::put('chip_required', true);
         Chip::create(['codigo' => 'CHIP-001', 'activo' => true]);
 

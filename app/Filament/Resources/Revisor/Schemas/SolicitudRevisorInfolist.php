@@ -15,7 +15,8 @@ use Filament\Schemas\Components\Tabs;
 use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Schemas\Components\View;
 use Filament\Schemas\Schema;
-use Illuminate\Support\Facades\Storage;
+use App\Support\Archivo;
+use Illuminate\Support\Facades\Auth;
 
 class SolicitudRevisorInfolist
 {
@@ -107,6 +108,13 @@ class SolicitudRevisorInfolist
                                 ]),
                         ]),
 
+                    Tab::make('Historial')
+                        ->icon('heroicon-m-clock')
+                        ->schema([
+                            View::make('filament.components.linea-tiempo')
+                                ->viewData(fn (Solicitud $record) => ['actividades' => $record->historialPara(Auth::user())]),
+                        ]),
+
                     Tab::make('Equipos')
                         ->icon('heroicon-m-wrench-screwdriver')
                         ->schema([
@@ -134,6 +142,6 @@ class SolicitudRevisorInfolist
 
     public static function url(?string $ruta): ?string
     {
-        return filled($ruta) ? Storage::disk('public')->url($ruta) : null;
+        return Archivo::url($ruta);
     }
 }

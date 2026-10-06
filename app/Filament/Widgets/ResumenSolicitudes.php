@@ -7,6 +7,7 @@ use App\Filament\Resources\Evaluador\Solicituds\SolicitudResource as EvaluadorRe
 use App\Filament\Resources\Revisor\SolicitudRevisorResource;
 use App\Filament\Resources\Solicituds\SolicitudResource as TallerResource;
 use App\Models\Solicitud;
+use App\Models\SystemSetting;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use Illuminate\Support\Facades\Auth;
@@ -52,6 +53,11 @@ class ResumenSolicitudes extends StatsOverviewWidget
                 ->descriptionIcon('heroicon-m-check-badge')
                 ->color('success')
                 ->url($url.'?activeTab=aprobadas'),
+            Stat::make('Por renovar', $q()->porRenovar(SystemSetting::vigencia()['dias_aviso'])->count())
+                ->description('Certificados que vencen pronto o ya vencieron')
+                ->descriptionIcon('heroicon-m-arrow-path')
+                ->color('warning')
+                ->url($url.'?activeTab=por_renovar'),
         ];
     }
 

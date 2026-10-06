@@ -9,7 +9,10 @@ use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
-use Illuminate\Support\Facades\Storage;
+use App\Models\SystemSetting;
+use App\Support\Archivo;
+use Filament\Schemas\Components\View;
+use Illuminate\Support\Facades\Auth;
 
 class SolicitudInfolist
 {
@@ -20,7 +23,7 @@ class SolicitudInfolist
                 ->icon('heroicon-o-flag')
                 ->columnSpanFull()
                 ->schema([
-                    Grid::make(['default' => 1, 'md' => 3])->schema([
+                    Grid::make(['default' => 1, 'md' => 4])->schema([
                         TextEntry::make('estado')
                             ->label('Estado actual')
                             ->badge()
@@ -28,6 +31,13 @@ class SolicitudInfolist
                             ->color(fn (?string $state) => EstadoSolicitud::colorDe($state)),
                         TextEntry::make('codigo')->label('N.º de certificado')->placeholder('Se asigna al aprobar')->copyable(),
                         TextEntry::make('fecha_aprobacion')->label('Aprobada el')->dateTime('d/m/Y H:i')->placeholder('—'),
+                        TextEntry::make('vence_el')->label('Vigente hasta')->date('d/m/Y')->placeholder('—')
+                            ->color(fn (Solicitud $record) => match (true) {
+                                $record->estaVencida() => 'danger',
+                                ($record->diasParaVencer() ?? 999) <= SystemSetting::vigencia()['dias_aviso'] => 'warning',
+                                default => null,
+                            })
+                            ->helperText(fn (Solicitud $record) => $record->estaVencida() ? 'Certificado vencido' : null),
                     ]),
                     TextEntry::make('observacion_devolucion')
                         ->label('Correcciones solicitadas por el evaluador')
@@ -105,9 +115,18 @@ class SolicitudInfolist
                                 ->hiddenLabel()
                                 ->icon(fn ($record) => $record->ruta_archivo ? 'heroicon-o-document-check' : 'heroicon-o-x-circle')
                                 ->iconColor(fn ($record) => $record->ruta_archivo ? 'success' : 'danger')
-                                ->url(fn ($record) => $record->ruta_archivo ? Storage::disk('public')->url($record->ruta_archivo) : null, shouldOpenInNewTab: true),
+                                ->url(fn ($record) => Archivo::url($record->ruta_archivo), shouldOpenInNewTab: true),
                         ])
                         ->grid(['default' => 1, 'md' => 2]),
+                ]),
+
+            Section::make('Historial')
+                ->icon('heroicon-o-clock')
+                ->collapsible()
+                ->columnSpanFull()
+                ->schema([
+                    View::make('filament.components.linea-tiempo')
+                        ->viewData(fn (Solicitud $record) => ['actividades' => $record->historialPara(Auth::user())]),
                 ]),
         ]);
     }

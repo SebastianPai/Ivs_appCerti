@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Solicituds\Schemas;
 
+use App\Support\Archivo;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\TextInput;
@@ -39,9 +40,9 @@ class AttachmentForm
     public static function archivo(string $nombre, string $directorio): FileUpload
     {
         return FileUpload::make($nombre)
-            ->disk('public')
+            ->disk(Archivo::DISCO)
             ->directory($directorio)
-            ->visibility('public')
+            ->visibility('private')
             ->acceptedFileTypes(['application/pdf', 'image/jpeg', 'image/png', 'image/webp', 'image/heic'])
             ->maxSize(10240) // 10 MB
             // Fotos del celular: se reducen antes de subir (ahorra datos en campo)

@@ -184,6 +184,15 @@ class ViewSolicitud extends Page implements HasForms
                             ->collapsible(),
                     ]),
 
+                Section::make('Historial')
+                    ->icon('heroicon-o-clock')
+                    ->collapsible()
+                    ->collapsed()
+                    ->schema([
+                        View::make('filament.components.linea-tiempo')
+                            ->viewData(['actividades' => $this->record->historialPara(Auth::user())]),
+                    ]),
+
                 Section::make('Observaciones del evaluador')
                     ->icon('heroicon-o-pencil-square')
                     ->schema([
@@ -231,7 +240,7 @@ class ViewSolicitud extends Page implements HasForms
                 ]);
 
                 $placa = $this->record->placa();
-                Correo::enviar($this->record->user?->email, "⚠️ Solicitud devuelta - Placa: {$placa}", 'emails.solicitud_devuelta', [
+                Correo::enviar($this->record->user, 'devolucion', "⚠️ Solicitud devuelta - Placa: {$placa}", 'emails.solicitud_devuelta', [
                     'user_name' => $this->record->user?->name,
                     'placa' => $placa,
                     'observacion' => $data['observacion'],

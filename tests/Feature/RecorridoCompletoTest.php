@@ -113,6 +113,7 @@ class RecorridoCompletoTest extends TestCase
     public function test_ciclo_devolucion_y_correccion_del_taller(): void
     {
         Storage::fake('public');
+        Storage::fake('local');
         $taller = $this->usuario('cliente');
         $evaluador = $this->usuario('evaluador');
         $evaluador->clientesAsignados()->attach($taller);
@@ -161,6 +162,7 @@ class RecorridoCompletoTest extends TestCase
     public function test_documentos_obligatorios_y_tipos_de_archivo(): void
     {
         Storage::fake('public');
+        Storage::fake('local');
         $taller = $this->usuario('cliente');
         $solicitud = $this->solicitud($taller);
         $this->actingAs($taller);

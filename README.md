@@ -74,7 +74,12 @@ El catálogo de marcas/modelos de la API de NHTSA es opcional y muy lento: `php 
 
 - `APP_ENV=production`, `APP_DEBUG=false`, `APP_URL` con **https** (necesario para GPS y NFC).
 - Crear el admin con `php artisan make:filament-user` y asignarle el rol `admin` (el seeder de usuarios no corre en producción).
-- Configurar SMTP (`MAIL_*`). Si un correo falla, queda registrado en `storage/logs/laravel.log` y el flujo continúa.
+- Configurar SMTP (`MAIL_*`). Los correos salen por la cola (`QUEUE_CONNECTION=database`): si uno falla se reintenta 2 veces y queda en `storage/logs/laravel.log` y en `failed_jobs`. Se pueden apagar todos o por tipo en **Configuración → Correos**; los avisos dentro de la app (campanita) siempre llegan.
+- **Una tarea cron cada minuto** (procesa la cola de correos y envía los avisos de vencimiento a las 7:00):
+  `* * * * * cd /ruta/del/proyecto && php artisan schedule:run >> /dev/null 2>&1`
+  En Windows: Programador de tareas ejecutando `php artisan schedule:run` cada minuto.
+- Documentos y fotos van en el disco privado (`storage/app/private`) y se abren con enlaces firmados que duran 30 min. Al actualizar una instalación anterior, correr una vez `php artisan ivs:archivos-privados` (con `--simular` muestra qué movería).
+- Verificación en dos pasos: cada usuario la activa en su **Perfil**; el admin puede volverla obligatoria por rol en **Configuración → Seguridad**.
 - `npm run build` y `php artisan optimize`.
 - **No subir** `.env` ni `storage/app/key/*.json` (credenciales).
 
@@ -84,7 +89,11 @@ El catálogo de marcas/modelos de la API de NHTSA es opcional y muy lento: `php 
 php artisan test
 ```
 
-Cubren permisos por rol, acceso por URL a registros ajenos, protección del certificado, validaciones del formulario, el chip y el flujo completo taller → evaluador → revisor → certificado.
+Cubren permisos por rol, acceso por URL a registros ajenos, protección del certificado, validaciones del formulario, el chip, el flujo completo taller → evaluador → revisor → certificado, archivos privados, correos, 2FA, auditoría, vigencias, tablero e inspección sin conexión.
+
+## Inspección sin conexión (evaluador)
+
+Menú **Evaluación → Inspección sin conexión** (`/campo`). Con señal, el evaluador descarga sus solicitudes; en el taller diligencia declaración, GPS, chip (NFC), fotos y checklist aunque no haya internet: todo queda en el navegador del celular (IndexedDB). Al volver la señal se envía solo. La evaluación queda "en progreso" y el envío al revisor se hace en línea desde el checklist, con las validaciones de siempre. Requiere https para GPS, NFC y el modo sin conexión.
 
 ## Mapa del código
 
@@ -98,5 +107,10 @@ app/Filament/Resources/Evaluador/      módulo del evaluador
 app/Filament/Resources/Revisor/        módulo del revisor
 app/Filament/Pages/Admin/SystemSettings.php  configuración
 app/Http/Controllers/CertificadoController.php  PDF (resources/views/pdf/certificado.blade.php)
+app/Http/Controllers/CampoController.php        inspección sin conexión (resources/views/campo/)
+app/Models/Actividad.php, Models/Concerns/Auditable.php  auditoría e historial
+app/Support/Correo.php, Jobs/EnviarCorreo.php    avisos en la app y correos en cola
+app/Support/Indicadores.php            cálculos del tablero (Filament/Widgets/)
+app/Console/Commands/                  ivs:avisar-vencimientos, ivs:archivos-privados
 resources/css/filament/admin/theme.css estilos propios (recompilar con npm run build)
 ```

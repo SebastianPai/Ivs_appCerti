@@ -34,7 +34,27 @@ use Illuminate\Database\Eloquent\Model;
  */
 class EvaluacionGeolocalizacion extends Model
 {
+    use Concerns\Auditable;
+
     protected $table = 'evaluacion_geolocalizaciones';
+
+    protected array $noAuditar = ['user_agent'];
+
+    protected function eventoAuditoria(string $evento, array $cambios): string
+    {
+        return 'inspeccion';
+    }
+
+    protected function describirAuditoria(string $evento, array $cambios): ?string
+    {
+        if ($evento === 'eliminado') {
+            return null;
+        }
+
+        $precision = $this->precision_m !== null ? ' (±'.round((float) $this->precision_m).' m)' : '';
+
+        return "Ubicación GPS registrada en {$this->latitud}, {$this->longitud}{$precision}";
+    }
 
     protected $fillable = [
         'solicitud_id',

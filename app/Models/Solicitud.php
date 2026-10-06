@@ -16,6 +16,8 @@ use App\Models\VehicleBrand;
 use App\Models\VehicleModel;
 use App\Models\VehicleType;
 use App\Enums\EstadoSolicitud;
+use App\Models\Concerns\Auditable;
+use Illuminate\Database\Eloquent\Builder;
 
 /**
  * @property int $id
@@ -90,9 +92,12 @@ use App\Enums\EstadoSolicitud;
  */
 class Solicitud extends Model
 {
-    use HasFactory;
+    use Auditable, HasFactory;
 
     protected $table = 'solicituds';
+
+    /** El aviso de vencimiento se registra como evento propio ("aviso"), no como modificación. */
+    protected array $noAuditar = ['aviso_vencimiento_at'];
 
     protected $fillable = [
         'user_id',
@@ -127,10 +132,14 @@ class Solicitud extends Model
         'observaciones_revisor',
         'revisor_id',
         'fecha_aprobacion',
+        'vence_el',
+        'aviso_vencimiento_at',
     ];
 
     protected $casts = [
         'fecha_aprobacion' => 'datetime',
+        'vence_el' => 'date',
+        'aviso_vencimiento_at' => 'datetime',
     ];
 
     // -------- Relaciones --------
@@ -203,6 +212,11 @@ class Solicitud extends Model
     public function verificacion()
     {
         return $this->hasOne(SolicitudVerificacion::class, 'solicitud_id')->latestOfMany();
+    }
+
+    public function actividades()
+    {
+        return $this->hasMany(Actividad::class, 'solicitud_id')->latest('created_at')->latest('id');
     }
 
     protected static function booted()
@@ -279,6 +293,96 @@ class Solicitud extends Model
             $q->whereIn('evaluador_id', $asignados)
                 ->orWhereNotIn('evaluador_id', $conRevisor);
         });
+    }
+
+    // -------- Vigencia del certificado --------
+
+    /** Fecha de vencimiento para un certificado aprobado hoy (meses configurables, 12 por defecto). */
+    public static function calcularVencimiento(?\DateTimeInterface $aprobacion = null): \Illuminate\Support\Carbon
+    {
+        return \Illuminate\Support\Carbon::instance($aprobacion ?? now())->addMonthsNoOverflow(SystemSetting::vigencia()['meses']);
+    }
+
+    public function estaVencida(): bool
+    {
+        return $this->estaAprobada() && $this->vence_el !== null && $this->vence_el->isPast() && ! $this->vence_el->isToday();
+    }
+
+    /** Días que faltan para el vencimiento (negativo si ya venció). */
+    public function diasParaVencer(): ?int
+    {
+        return $this->vence_el ? (int) now()->startOfDay()->diffInDays($this->vence_el, false) : null;
+    }
+
+    /**
+     * Certificados aprobados que vencen dentro de $dias (o ya vencieron) y que todavía
+     * no tienen una solicitud más reciente para el mismo vehículo (es decir, no se han renovado).
+     */
+    public function scopePorRenovar(Builder $query, int $dias): Builder
+    {
+        return $query
+            ->where('estado', EstadoSolicitud::Aprobada->value)
+            ->whereNotNull('vence_el')
+            ->whereDate('vence_el', '<=', now()->addDays($dias)->toDateString())
+            ->whereNotExists(function ($q) {
+                $q->select(DB::raw(1))
+                    ->from('solicituds as posterior')
+                    ->whereColumn('posterior.vehicle_identification', 'solicituds.vehicle_identification')
+                    ->whereColumn('posterior.id', '>', 'solicituds.id');
+            });
+    }
+
+    // -------- Auditoría --------
+
+    /** Historial para la línea de tiempo: el taller solo ve la creación y los cambios de estado. */
+    public function historialPara(?User $user)
+    {
+        return $this->actividades()
+            ->with('user:id,name')
+            ->when(! $user?->hasAnyRole(['admin', 'evaluador', 'revisor']), fn ($q) => $q->whereIn('evento', Actividad::EVENTOS_PUBLICOS))
+            ->limit(200)
+            ->get();
+    }
+
+    protected function solicitudIdAuditoria(): ?int
+    {
+        return $this->id;
+    }
+
+    protected function eventoAuditoria(string $evento, array $cambios): string
+    {
+        return $evento === 'actualizado' && array_key_exists('estado', $cambios) ? 'estado' : $evento;
+    }
+
+    protected function describirAuditoria(string $evento, array $cambios): ?string
+    {
+        if ($evento === 'creado') {
+            return 'Solicitud creada para el vehículo '.$this->placa();
+        }
+
+        if ($evento === 'eliminado') {
+            return 'Solicitud de la placa '.$this->placa().' eliminada';
+        }
+
+        if (! array_key_exists('estado', $cambios)) {
+            return 'Datos de la solicitud modificados: '.implode(', ', array_keys($cambios));
+        }
+
+        $texto = EstadoSolicitud::labelDe($cambios['estado']['antes']).' → '.EstadoSolicitud::labelDe($cambios['estado']['despues']);
+
+        if (filled($cambios['observacion_devolucion']['despues'] ?? null)) {
+            $texto .= '. Motivo: '.$cambios['observacion_devolucion']['despues'];
+        }
+
+        if ($this->estado === EstadoSolicitud::CorreccionTecnica->value && filled($cambios['observaciones_revisor']['despues'] ?? null)) {
+            $texto .= '. Motivo: '.$cambios['observaciones_revisor']['despues'];
+        }
+
+        if (filled($cambios['codigo']['despues'] ?? null)) {
+            $texto .= '. Certificado N.º '.$cambios['codigo']['despues'];
+        }
+
+        return $texto;
     }
 
     /** Número de certificado: IVS-AAAA-000123 */

@@ -2,18 +2,21 @@
 
 namespace App\Providers\Filament;
 
-use App\Filament\Widgets\ResumenSolicitudes;
+use App\Filament\Pages\Auth\EditarPerfil;
+use App\Filament\Pages\Dashboard;
+use App\Http\Middleware\Exigir2FA;
+use Filament\Auth\MultiFactor\App\AppAuthentication;
+use Filament\Navigation\NavigationItem;
+use Illuminate\Support\Facades\Auth;
 use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
 use Filament\Navigation\NavigationGroup;
-use Filament\Pages\Dashboard;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
-use Filament\Widgets\AccountWidget;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
@@ -36,6 +39,16 @@ class AdminPanelProvider extends PanelProvider
             ->authGuard('web')
             ->login()
             ->passwordReset()
+            ->profile(EditarPerfil::class, isSimple: false)
+            // Verificación en dos pasos con app (Google Authenticator, Microsoft Authenticator, Authy…).
+            // Es opcional para todos y obligatoria para los roles elegidos en Configuración (ver Exigir2FA).
+            ->multiFactorAuthentication(
+                AppAuthentication::make()->recoverable()->brandName('IVS Certificaciones'),
+                isRequired: true,
+            )
+            ->multiFactorAuthenticationRequiredMiddlewareName(Exigir2FA::class)
+            ->databaseNotifications()
+            ->databaseNotificationsPolling('60s')
             ->brandName('IVS Certificaciones')
             ->brandLogo(asset('images/logo-sm.png'))
             ->brandLogoHeight('2.5rem')
@@ -57,9 +70,13 @@ class AdminPanelProvider extends PanelProvider
             ->pages([
                 Dashboard::class,
             ])
-            ->widgets([
-                AccountWidget::class,
-                ResumenSolicitudes::class,
+            ->navigationItems([
+                NavigationItem::make('Inspección sin conexión')
+                    ->url(fn () => route('campo.index'))
+                    ->icon('heroicon-o-signal-slash')
+                    ->group('Evaluación')
+                    ->sort(3)
+                    ->visible(fn () => (bool) Auth::user()?->hasRole('evaluador')),
             ])
             ->middleware([
                 EncryptCookies::class,

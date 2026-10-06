@@ -67,7 +67,7 @@ class ViewSolicitudRevisor extends ViewRecord
                     $evaluador = $this->record->verificacion?->evaluador;
                     $placa = $this->record->placa();
 
-                    Correo::enviar($evaluador?->email, "🔁 Corrección técnica - Placa: {$placa}", 'emails.notificacion', [
+                    Correo::enviar($evaluador, 'devolucion', "🔁 Corrección técnica - Placa: {$placa}", 'emails.notificacion', [
                         'titulo' => 'Corrección técnica solicitada',
                         'saludo' => $evaluador?->name,
                         'cuerpo' => 'El revisor devolvió la evaluación con la siguiente observación:',
@@ -104,6 +104,8 @@ class ViewSolicitudRevisor extends ViewRecord
                             'codigo' => $this->record->codigo ?? Solicitud::generarCodigo($this->record),
                             'revisor_id' => Auth::id(),
                             'fecha_aprobacion' => now(),
+                            'vence_el' => Solicitud::calcularVencimiento(now())->toDateString(),
+                            'aviso_vencimiento_at' => null,
                         ]);
 
                         $this->record->verificacion?->update(['estado' => 'aprobada']);
@@ -112,12 +114,12 @@ class ViewSolicitudRevisor extends ViewRecord
                     $taller = $this->record->user;
                     $placa = $this->record->placa();
 
-                    Correo::enviar($taller?->email, "🎉 Certificado aprobado - Placa: {$placa}", 'emails.notificacion', [
+                    Correo::enviar($taller, 'aprobacion', "🎉 Certificado aprobado - Placa: {$placa}", 'emails.notificacion', [
                         'titulo' => 'Certificación aprobada',
                         'saludo' => $taller?->name,
                         'cuerpo' => 'La solicitud fue aprobada y el certificado ya está disponible para descarga.',
                         'placa' => $placa,
-                        'detalle' => 'Certificado N.º '.$this->record->codigo,
+                        'detalle' => 'Certificado N.º '.$this->record->codigo.' · vigente hasta el '.$this->record->vence_el?->format('d/m/Y'),
                         'boton_texto' => 'Ver solicitud',
                         'boton_url' => TallerSolicitudResource::getUrl('view', ['record' => $this->record]),
                     ]);

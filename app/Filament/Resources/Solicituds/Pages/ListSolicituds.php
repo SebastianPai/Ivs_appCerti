@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Solicituds\Pages;
 
 use App\Enums\EstadoSolicitud;
 use App\Filament\Resources\Solicituds\SolicitudResource;
+use App\Models\SystemSetting;
 use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Schemas\Components\Tabs\Tab;
@@ -51,6 +52,12 @@ class ListSolicituds extends ListRecords
                 ->icon('heroicon-m-check-badge')
                 ->modifyQueryUsing(fn (Builder $query) => $query->whereIn('estado', $aprobadas))
                 ->badgeColor('success'),
+
+            'por_renovar' => Tab::make('Por renovar')
+                ->icon('heroicon-m-arrow-path')
+                ->modifyQueryUsing(fn (Builder $query) => $query->porRenovar(SystemSetting::vigencia()['dias_aviso']))
+                ->badge(fn () => SolicitudResource::getEloquentQuery()->porRenovar(SystemSetting::vigencia()['dias_aviso'])->count() ?: null)
+                ->badgeColor('warning'),
 
             'todas' => Tab::make('Todas')
                 ->icon('heroicon-m-list-bullet'),
