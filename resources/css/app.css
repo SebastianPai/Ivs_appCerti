@@ -1,0 +1,32 @@
+@import "tailwindcss";
+
+@theme {
+    --color-primary-50: #fffbeb;
+    --color-primary-600: #d97706;
+    --color-primary-700: #b45309;
+}
+
+.font-instrument {
+    font-family: "Instrument Sans", sans-serif;
+}
+
+.glass-card {
+    border-radius: 0.75rem;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow: hidden;
+
+    /* MODO CLARO: Fondo blanco con un toque de transparencia */
+    background-color: rgba(255, 255, 255, 0.9);
+    border: 1px solid #d1d5db;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    /* NOTA: Aquí NO ponemos la propiedad 'color' */
+
+    :is(.dark &) {
+        background-color: rgba(24, 24, 27, 0.6);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.4);
+        /* NOTA: Aquí tampoco ponemos 'color' */
+    }
+}

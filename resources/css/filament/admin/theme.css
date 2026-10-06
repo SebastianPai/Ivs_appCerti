@@ -1,0 +1,84 @@
+@import '../../../../vendor/filament/filament/resources/css/theme.css';
+
+@source '../../../../app/Filament/**/*';
+@source '../../../../app/Support/**/*';
+@source '../../../../resources/views/filament/**/*';
+
+/* ------------------------------------------------------------------
+ * Estilos propios de IVS. Compilar con `npm run build` tras cambiarlos.
+ * ------------------------------------------------------------------ */
+
+/* Indicador de pasos del evaluador */
+.ivs-pasos {
+    @apply flex gap-2 overflow-x-auto pb-1;
+}
+.ivs-paso {
+    @apply flex flex-1 items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-500 whitespace-nowrap dark:border-white/10 dark:bg-white/5 dark:text-gray-400;
+}
+.ivs-paso__num {
+    @apply flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gray-100 text-xs font-bold dark:bg-white/10;
+}
+.ivs-paso--actual {
+    @apply border-primary-500 text-primary-700 dark:text-primary-400;
+}
+.ivs-paso--actual .ivs-paso__num {
+    @apply bg-primary-600 text-white;
+}
+.ivs-paso--hecho .ivs-paso__num {
+    @apply bg-success-600 text-white;
+}
+/* En celular solo se ve el texto del paso actual */
+@media (max-width: 639px) {
+    .ivs-paso:not(.ivs-paso--actual) .ivs-paso__txt {
+        display: none;
+    }
+    .ivs-paso:not(.ivs-paso--actual) {
+        flex: 0 0 auto;
+    }
+}
+
+/* Barra de acciones: fija abajo en celular, normal en escritorio */
+.ivs-sticky-actions {
+    @apply flex flex-col-reverse gap-3 sm:flex-row sm:justify-end;
+}
+@media (max-width: 639px) {
+    .ivs-sticky-actions {
+        @apply sticky bottom-0 z-10 -mx-4 border-t border-gray-200 bg-white/95 px-4 py-3 backdrop-blur dark:border-white/10 dark:bg-gray-900/95;
+        padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+    }
+    .ivs-sticky-actions > * {
+        @apply w-full;
+    }
+}
+
+/* Numeral NTC en el checklist */
+.ivs-numeral {
+    @apply me-1 inline-block rounded border border-primary-200 bg-primary-50 px-1.5 py-0.5 text-[11px] font-bold text-primary-700 dark:border-primary-500/30 dark:bg-primary-500/10 dark:text-primary-400;
+}
+
+/* Filas de lectura (revisor) */
+.ivs-fila {
+    @apply flex flex-col gap-2 rounded-lg border border-gray-100 p-3 text-sm sm:flex-row sm:items-center sm:justify-between dark:border-white/10;
+}
+
+/* Galería de documentos y fotos */
+.ivs-galeria {
+    @apply grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4;
+}
+.ivs-galeria__item {
+    @apply overflow-hidden rounded-lg border border-gray-200 dark:border-white/10;
+}
+.ivs-galeria__img {
+    @apply h-32 w-full object-cover transition hover:opacity-80;
+}
+.ivs-galeria__vacio {
+    @apply flex h-32 flex-col items-center justify-center gap-1 bg-gray-50 text-xs text-gray-500 dark:bg-white/5;
+}
+.ivs-galeria__titulo {
+    @apply truncate px-2 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-300;
+}
+
+/* Tarjetas de documentos (vista del evaluador) */
+.glass-card {
+    @apply rounded-xl border border-gray-300 bg-white/90 dark:border-white/10 dark:bg-white/5;
+}
