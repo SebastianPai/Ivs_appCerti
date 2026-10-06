@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Revisor\Tables;
 
 use App\Enums\EstadoSolicitud;
+use App\Filament\Actions\ExportarSolicitudesAction;
 use App\Filament\Resources\Revisor\SolicitudRevisorResource;
 use App\Models\Solicitud;
 use Filament\Actions\Action;
@@ -47,6 +48,12 @@ class SolicitudRevisorTable
                     ->label('Actualizada')
                     ->since()
                     ->sortable(),
+            ])
+            ->headerActions([
+                ExportarSolicitudesAction::make('auditoria'),
+            ])
+            ->toolbarActions([
+                ExportarSolicitudesAction::seleccionadas('auditoria'),
             ])
             ->recordActions([
                 Action::make('revisar')

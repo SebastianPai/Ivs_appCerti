@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Solicituds\Tables;
 
 use App\Enums\EstadoSolicitud;
+use App\Filament\Actions\ExportarSolicitudesAction;
 use App\Filament\Resources\Solicituds\SolicitudResource;
 use App\Models\Solicitud;
 use Filament\Actions\Action;
@@ -131,8 +132,12 @@ class SolicitudsTable
                         ->when($data['until'] ?? null, fn ($q, $d) => $q->whereDate('created_at', '<=', $d))),
             ])
 
+            ->headerActions([
+                ExportarSolicitudesAction::make('mis-solicitudes'),
+            ])
             ->toolbarActions([
                 BulkActionGroup::make([
+                    ExportarSolicitudesAction::seleccionadas('mis-solicitudes'),
                     // Las aprobadas no se borran (ver Solicitud::booted)
                     DeleteBulkAction::make()->visible($esAdmin),
                 ]),

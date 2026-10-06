@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Evaluador\Solicituds\Tables;
 
 use App\Enums\EstadoSolicitud;
+use App\Filament\Actions\ExportarSolicitudesAction;
 use App\Filament\Resources\Evaluador\Solicituds\SolicitudResource;
 use App\Models\Solicitud;
 use Filament\Actions\Action;
@@ -61,6 +62,12 @@ class SolicitudesAbiertasTable
                     ->label('Esperando desde')
                     ->since()
                     ->sortable(),
+            ])
+            ->headerActions([
+                ExportarSolicitudesAction::make('evaluaciones'),
+            ])
+            ->toolbarActions([
+                ExportarSolicitudesAction::seleccionadas('evaluaciones'),
             ])
             ->recordActions([
                 Action::make('evaluar')
