@@ -65,6 +65,11 @@ Usuarios de prueba (solo fuera de producción, contraseña `password`): `admin@a
 
 El catálogo de marcas/modelos de la API de NHTSA es opcional y muy lento: `php artisan db:seed --class=VehicleCatalogSeeder`. Si falta una línea de vehículo, el taller la puede crear desde el formulario (botón +).
 
+## Rendimiento
+
+- PHP debe tener **OPcache** activo, también para consola si se usa `php artisan serve`: en `php.ini` → `zend_extension=opcache`, `opcache.enable=1`, `opcache.enable_cli=1`. Sin esto cada página tarda varios segundos.
+- `php artisan filament:optimize` cachea íconos y componentes de Filament (en Windows ahorra ~3 s por petición). Si se agregan recursos o páginas nuevas de Filament y no aparecen, correr `php artisan filament:optimize-clear` y volver a optimizar.
+
 ## Producción (checklist)
 
 - `APP_ENV=production`, `APP_DEBUG=false`, `APP_URL` con **https** (necesario para GPS y NFC).
