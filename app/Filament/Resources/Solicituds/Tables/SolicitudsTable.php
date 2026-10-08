@@ -6,6 +6,7 @@ use App\Enums\EstadoSolicitud;
 use App\Filament\Actions\ExportarSolicitudesAction;
 use App\Filament\Resources\Solicituds\SolicitudResource;
 use App\Models\Solicitud;
+use App\Models\SystemSetting;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
@@ -70,6 +71,19 @@ class SolicitudsTable
                     ->placeholder('—')
                     ->toggleable(),
 
+                TextColumn::make('vence_el')
+                    ->label('Vigente hasta')
+                    ->date('d/m/Y')
+                    ->sortable()
+                    ->placeholder('—')
+                    ->color(fn (Solicitud $record) => match (true) {
+                        $record->estaVencida() => 'danger',
+                        ($record->diasParaVencer() ?? 999) <= SystemSetting::vigencia()['dias_aviso'] => 'warning',
+                        default => null,
+                    })
+                    ->description(fn (Solicitud $record) => $record->estaVencida() ? 'Vencido' : null)
+                    ->visible(fn ($livewire) => in_array($livewire->activeTab ?? null, ['aprobadas', 'por_renovar', 'todas'], true)),
+
                 TextColumn::make('updated_at')
                     ->label('Última actualización')
                     ->since()
@@ -95,6 +109,15 @@ class SolicitudsTable
                     ->url(fn (Solicitud $record) => route('solicitud.certificado', $record))
                     ->openUrlInNewTab()
                     ->visible(fn (Solicitud $record) => $record->estaAprobada()),
+
+                Action::make('renovar')
+                    ->label('Renovar')
+                    ->icon('heroicon-o-arrow-path')
+                    ->color('warning')
+                    ->button()
+                    ->tooltip('Crear la solicitud de revisión periódica con los mismos datos')
+                    ->url(fn (Solicitud $record) => SolicitudResource::getUrl('create', ['desde' => $record->id]))
+                    ->visible(fn ($livewire) => ($livewire->activeTab ?? null) === 'por_renovar'),
 
                 ActionGroup::make([
                     ViewAction::make(),

@@ -252,7 +252,7 @@ class EvaluacionChecklist extends Page implements HasForms
         $placa = $this->record->placa();
 
         foreach ($revisores as $revisor) {
-            Correo::enviar($revisor->email, "📋 Nueva revisión pendiente - Placa: {$placa}", 'emails.revision_pendiente', [
+            Correo::enviar($revisor, 'revision', "📋 Nueva revisión pendiente - Placa: {$placa}", 'emails.revision_pendiente', [
                 'revisor_name' => $revisor->name,
                 'evaluador_name' => $evaluador->name,
                 'placa' => $placa,

@@ -124,7 +124,7 @@ class ManageSolicitudAttachments extends Page implements HasForms
         $taller = $this->record->user;
         $placa = $this->record->placa();
 
-        Correo::enviar($taller->email, "✅ Documentación recibida - Placa: {$placa}", 'emails.confirmacion_carga', [
+        Correo::enviar($taller, 'documentos', "✅ Documentación recibida - Placa: {$placa}", 'emails.confirmacion_carga', [
             'user_name' => $taller->name,
             'placa' => $placa,
             'url_solicitud' => SolicitudResource::getUrl('view', ['record' => $this->record]),
@@ -133,7 +133,7 @@ class ManageSolicitudAttachments extends Page implements HasForms
         $asunto = $eraDevuelta ? "🔁 Solicitud corregida - Placa: {$placa}" : "📂 Documentos cargados - Placa: {$placa}";
 
         foreach ($taller->evaluadores()->get() as $evaluador) {
-            Correo::enviar($evaluador->email, $asunto, 'emails.documentos_cargados_evaluador', [
+            Correo::enviar($evaluador, 'documentos', $asunto, 'emails.documentos_cargados_evaluador', [
                 'evaluador_name' => $evaluador->name,
                 'cliente_name' => $taller->name,
                 'placa' => $placa,

@@ -93,7 +93,8 @@ class UserForm
                         ->schema([
                             FileUpload::make('camara_comercio')
                                 ->label('Cámara de comercio')
-                                ->disk('public')
+                                ->disk('local')
+                                ->visibility('private')
                                 ->directory('camara-comercio')
                                 ->acceptedFileTypes(['application/pdf', 'image/jpeg', 'image/png'])
                                 ->maxSize(5120)

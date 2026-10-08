@@ -33,7 +33,8 @@ return [
         'local' => [
             'driver' => 'local',
             'root' => storage_path('app/private'),
-            'serve' => true,
+            // Se sirve con la ruta propia "archivos.privado" (ver AppServiceProvider), no con la de Laravel
+            'serve' => false,
             'throw' => false,
             'report' => false,
         ],
