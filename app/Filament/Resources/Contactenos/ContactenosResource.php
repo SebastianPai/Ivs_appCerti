@@ -35,6 +35,9 @@ class ContactenosResource extends Resource
 
     protected static ?int $navigationSort = 10;
 
+    // Contáctenos está apagado: nadie ve el formulario, así que la bandeja tampoco sale en el menú
+    protected static bool $shouldRegisterNavigation = false;
+
     public static function canViewAny(): bool
     {
         return (bool) Auth::user()?->hasRole('admin');

@@ -65,14 +65,6 @@ class AdminPanelProvider extends PanelProvider
                 isRequired: true,
             )
             ->multiFactorAuthenticationRequiredMiddlewareName(Exigir2FA::class)
-            ->userMenuItems([
-                \Filament\Actions\Action::make('contactenos')
-                    ->label('Contáctenos')
-                    ->icon('heroicon-o-chat-bubble-left-right')
-                    ->url(fn () => \App\Filament\Pages\Contactenos::getUrl())
-                    // El admin recibe los mensajes en Administrador › Contactenos; no se escribe a sí mismo
-                    ->visible(fn () => ! Auth::user()?->hasRole('admin')),
-            ])
             ->databaseNotifications()
             ->databaseNotificationsPolling('60s')
             ->brandName('IVS Certificaciones')
