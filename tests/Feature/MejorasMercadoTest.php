@@ -255,7 +255,7 @@ class MejorasMercadoTest extends TestCase
         SolicitudVerificacion::create(['solicitud_id' => $s->id, 'evaluador_id' => $evaluador->id, 'estado' => 'aprobada', 'verificada_en' => now()]);
 
         $this->actingAs($this->usuario('admin'));
-        $this->get('/ivs')->assertOk()->assertSee('Periodo de los indicadores');
+        $this->get('/ivs')->assertOk()->assertSee('Periodo: ');
 
         Livewire::test(IndicadoresTiempos::class)->assertOk()->assertSee('Ciclo completo')->assertSee('100 %');
         Livewire::test(SolicitudesPorMes::class)->assertOk();
@@ -272,7 +272,7 @@ class MejorasMercadoTest extends TestCase
         $this->flushSession();
         $this->actingAs($taller);
         $this->assertFalse(IndicadoresTiempos::canView());
-        $this->get('/ivs')->assertOk()->assertDontSee('Periodo de los indicadores')->assertSee('Por renovar');
+        $this->get('/ivs')->assertOk()->assertDontSee('Periodo: ')->assertSee('Por renovar');
     }
 
     // ------------------------------------------------------------------

@@ -3,13 +3,11 @@
 namespace App\Filament\Pages;
 
 use App\Filament\Widgets;
+use App\Support\Indicadores;
 use Filament\Forms\Components\DatePicker;
 use Filament\Pages\Dashboard as BaseDashboard;
-use Filament\Pages\Dashboard\Concerns\HasFiltersForm;
-use Filament\Schemas\Components\Component;
-use Filament\Schemas\Components\Section;
-use Filament\Schemas\Schema;
-use Filament\Widgets\AccountWidget;
+use Filament\Pages\Dashboard\Actions\FilterAction;
+use Filament\Pages\Dashboard\Concerns\HasFiltersAction;
 use Illuminate\Support\Facades\Auth;
 
 /**
@@ -18,10 +16,12 @@ use Illuminate\Support\Facades\Auth;
  */
 class Dashboard extends BaseDashboard
 {
-    use HasFiltersForm;
+    use HasFiltersAction;
 
     // Primera entrada de la barra, con el nombre que tenía en la plataforma anterior
     protected static ?string $navigationLabel = 'Menú';
+
+    protected static ?string $title = 'Menú';
 
     /** Mismo saludo de la pantalla de inicio de la plataforma anterior. */
     public function getHeading(): string
@@ -39,14 +39,20 @@ class Dashboard extends BaseDashboard
         return (bool) Auth::user()?->hasAnyRole(['admin', 'revisor']);
     }
 
-    public function filtersForm(Schema $schema): Schema
+    /** El periodo va en un botón junto al saludo, en vez de un formulario que ocupa la entrada. */
+    protected function getHeaderActions(): array
     {
-        return $schema->components([
-            Section::make('Periodo de los indicadores')
+        return [
+            FilterAction::make()
+                ->label(function (): string {
+                    $periodo = Indicadores::desdeFiltros($this->filters);
+
+                    return 'Periodo: '.$periodo->desde->format('d/m/Y').' – '.$periodo->hasta->format('d/m/Y');
+                })
                 ->icon('heroicon-o-calendar-days')
-                ->compact()
-                ->columnSpanFull()
-                ->columns(['default' => 1, 'sm' => 2])
+                ->modalHeading('Periodo de los indicadores')
+                ->modalSubmitActionLabel('Aplicar')
+                ->visible(static::veIndicadores())
                 ->schema([
                     DatePicker::make('desde')
                         ->label('Desde')
@@ -62,18 +68,12 @@ class Dashboard extends BaseDashboard
                         ->minDate(fn ($get) => $get('desde'))
                         ->maxDate(now()),
                 ]),
-        ]);
-    }
-
-    public function getFiltersFormContentComponent(): Component
-    {
-        return parent::getFiltersFormContentComponent()->visible(static::veIndicadores());
+        ];
     }
 
     public function getWidgets(): array
     {
         return [
-            AccountWidget::class,
             // Primero lo que tiene a alguien bloqueado: talleres que esperan la fecha de su registro
             Widgets\RegistrosTallerPendientes::class,
             Widgets\ResumenSolicitudes::class,

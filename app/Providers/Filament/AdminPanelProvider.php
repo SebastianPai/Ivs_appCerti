@@ -69,14 +69,16 @@ class AdminPanelProvider extends PanelProvider
                 \Filament\Actions\Action::make('contactenos')
                     ->label('Contáctenos')
                     ->icon('heroicon-o-chat-bubble-left-right')
-                    ->url(fn () => \App\Filament\Pages\Contactenos::getUrl()),
+                    ->url(fn () => \App\Filament\Pages\Contactenos::getUrl())
+                    // El admin recibe los mensajes en Administrador › Contactenos; no se escribe a sí mismo
+                    ->visible(fn () => ! Auth::user()?->hasRole('admin')),
             ])
             ->databaseNotifications()
             ->databaseNotificationsPolling('60s')
             ->brandName('IVS Certificaciones')
             ->brandLogo(asset('images/logo-sm.png'))
             ->brandLogoHeight('2.5rem')
-            ->favicon(asset('favicon.ico'))
+            ->favicon(asset('images/favicon-32.png'))
             ->colors([
                 'primary' => Color::Red,
             ])
