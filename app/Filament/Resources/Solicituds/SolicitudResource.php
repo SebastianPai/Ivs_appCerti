@@ -26,15 +26,15 @@ class SolicitudResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedDocumentPlus;
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Taller';
+    protected static string|\UnitEnum|null $navigationGroup = 'Cliente';
 
-    protected static ?string $navigationLabel = 'Mis solicitudes';
+    protected static ?string $navigationLabel = 'Mis Solicitudes';
 
     protected static ?string $modelLabel = 'solicitud';
 
     protected static ?string $pluralModelLabel = 'solicitudes';
 
-    protected static ?int $navigationSort = 1;
+    protected static ?int $navigationSort = 2;
 
     public static function form(Schema $schema): Schema
     {

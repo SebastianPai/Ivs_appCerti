@@ -12,6 +12,8 @@ class ListSolicitudesAbiertas extends ListRecords
 {
     protected static string $resource = SolicitudResource::class;
 
+    protected static ?string $title = 'Solicitudes Abiertas';
+
     public function getTabs(): array
     {
         $tab = function (string $titulo, string $icono, array $estados, ?string $color = null): Tab {
@@ -23,8 +25,10 @@ class ListSolicitudesAbiertas extends ListRecords
         };
 
         return [
-            'por_evaluar' => $tab('Por evaluar', 'heroicon-o-clipboard-document-check', EstadoSolicitud::evaluables(), 'warning'),
-            'en_taller' => $tab('Esperando taller', 'heroicon-o-clock', [EstadoSolicitud::DevueltaTaller->value]),
+            'por_evaluar' => $tab('Abiertas', 'heroicon-o-clipboard-document-check', EstadoSolicitud::evaluables(), 'warning'),
+            // Como en la plataforma anterior: lo que el revisor devolvió, aparte, para reenviarlo
+            'devueltas_revisor' => $tab('Devueltas Revisor', 'heroicon-o-arrow-uturn-left', [EstadoSolicitud::CorreccionTecnica->value], 'danger'),
+            'en_taller' => $tab('Pendientes Taller', 'heroicon-o-clock', [EstadoSolicitud::DevueltaTaller->value]),
             'en_revision' => $tab('En revisión', 'heroicon-o-eye', [EstadoSolicitud::Evaluada->value], 'info'),
             'aprobadas' => Tab::make('Aprobadas')
                 ->icon('heroicon-o-check-badge')

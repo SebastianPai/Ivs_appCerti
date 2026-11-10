@@ -122,6 +122,17 @@ class SolicitudVerificacion extends Model
         return $this->hasMany(VerificacionFoto::class, 'solicitud_verificacion_id');
     }
 
+    protected static function booted(): void
+    {
+        // Como en la plataforma anterior: el chip pasa a Inactivo en cuanto se asigna a una solicitud,
+        // antes de enviar la lista. Devolver o reenviar no lo libera.
+        static::saved(function (SolicitudVerificacion $verificacion) {
+            if ($verificacion->id_chip && $verificacion->wasChanged('id_chip') || $verificacion->wasRecentlyCreated && $verificacion->id_chip) {
+                Chip::whereKey($verificacion->id_chip)->where('activo', true)->update(['activo' => false, 'updated_at' => now()]);
+            }
+        });
+    }
+
     public function solicitud(): BelongsTo
     {
         return $this->belongsTo(Solicitud::class);

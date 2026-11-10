@@ -7,13 +7,13 @@ use App\Filament\Resources\Evaluador\Solicituds\SolicitudResource;
 use App\Filament\Resources\Revisor\SolicitudRevisorResource;
 use App\Models\Solicitud;
 use App\Models\SolicitudVerificacion;
+use App\Models\SystemSetting;
 use App\Models\User;
 use App\Support\ChecklistTecnico;
 use App\Support\Correo;
 use Closure;
 use Filament\Actions\Action;
-use Filament\Forms\Components\Hidden;
-use Filament\Forms\Components\Repeater;
+use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\ToggleButtons;
@@ -45,6 +45,9 @@ class EvaluacionChecklist extends Page implements HasForms
 
     public ?array $data = [];
 
+    /** Con el prellenado activo, los ítems ya respondidos se ocultan hasta que el evaluador pida verlos. */
+    public bool $mostrarTodos = false;
+
     public static function canAccess(array $parameters = []): bool
     {
         return (bool) Auth::user()?->hasRole('evaluador');
@@ -74,17 +77,17 @@ class EvaluacionChecklist extends Page implements HasForms
         }
 
         $guardado = SolicitudResource::verificacionDe($this->record)?->datos_checklist ?? [];
-        $porSerie = collect($guardado['verificacion_cilindros'] ?? [])->keyBy('numero_serie');
+        // Lo que depende de los cilindros y del tipo de aplicación va antes que el prellenado
+        $guardado += array_filter(ChecklistTecnico::reglasDinamicas(
+            $guardado['ultra_liviano'] ?? null,
+            (array) ($guardado['ubicacion_cilindro'] ?? []),
+            ChecklistTecnico::esDedicado($this->record),
+        ));
 
-        // Una fila por cada cilindro declarado por el taller, con su serie visible
-        $guardado['verificacion_cilindros'] = $this->record->cilindros
-            ->map(fn ($c) => [
-                'numero_serie' => $c->numero_serie,
-                'ultra_liviano' => $porSerie[$c->numero_serie]['ultra_liviano'] ?? null,
-                'ubicacion' => $porSerie[$c->numero_serie]['ubicacion'] ?? [],
-            ])
-            ->values()
-            ->all();
+        // Prellenado (opcional): sugiere las respuestas habituales; lo ya guardado siempre manda
+        if (SystemSetting::enabled('checklist_prellenado')) {
+            $guardado += ChecklistTecnico::valoresIniciales($this->record);
+        }
 
         $this->form->fill($guardado);
     }
@@ -96,28 +99,27 @@ class EvaluacionChecklist extends Page implements HasForms
                 ->icon('heroicon-o-beaker')
                 ->description('Tipo y ubicación')
                 ->schema([
-                    Repeater::make('verificacion_cilindros')
-                        ->hiddenLabel()
-                        ->schema([
-                            Hidden::make('numero_serie'),
-                            Grid::make(['default' => 1, 'md' => 2])->schema([
-                                ToggleButtons::make('ultra_liviano')
-                                    ->label('¿Es ultraliviano?')
-                                    ->options(['si' => 'Sí', 'no' => 'No'])
-                                    ->colors(['si' => 'success', 'no' => 'gray'])
-                                    ->inline()
-                                    ->required(),
-                                Select::make('ubicacion')
-                                    ->label('Ubicación del cilindro')
-                                    ->multiple()
-                                    ->options(ChecklistTecnico::UBICACIONES_CILINDRO)
-                                    ->required(),
-                            ]),
-                        ])
-                        ->itemLabel(fn (array $state) => 'Cilindro serie '.($state['numero_serie'] ?? 's/n'))
-                        ->addable(false)
-                        ->deletable(false)
-                        ->reorderable(false),
+                    // Se pregunta una sola vez por solicitud, aunque el vehículo tenga varios cilindros
+                    Grid::make(['default' => 1, 'md' => 2])->schema([
+                        ToggleButtons::make('ultra_liviano')
+                            ->label('El cilindro es ultraliviano')
+                            ->options(['no' => 'No', 'si' => 'Sí'])
+                            ->colors(['si' => 'success', 'no' => 'gray'])
+                            ->inline()
+                            ->required()
+                            ->validationMessages(['required' => 'Es obligatorio responder si el cilindro es ultraliviano.'])
+                            ->live()
+                            ->afterStateUpdated(fn () => $this->aplicarReglas()),
+                        Select::make('ubicacion_cilindro')
+                            ->label('Ubicación del cilindro')
+                            ->helperText('Puede marcar varias.')
+                            ->multiple()
+                            ->options(ChecklistTecnico::UBICACIONES_CILINDRO)
+                            ->required()
+                            ->validationMessages(['required' => 'Es obligatorio responder sobre la ubicación del cilindro.'])
+                            ->live()
+                            ->afterStateUpdated(fn () => $this->aplicarReglas()),
+                    ]),
                 ]),
         ];
 
@@ -128,6 +130,24 @@ class EvaluacionChecklist extends Page implements HasForms
                 ->schema(array_map(fn (array $item) => $this->fila($item), $seccion['items']));
         }
 
+        $pasos[] = Wizard\Step::make('Conclusión')
+            ->icon('heroicon-o-flag')
+            ->description('Resultado de la inspección')
+            ->schema([
+                ToggleButtons::make('conclusion')
+                    ->label('Conclusión')
+                    ->options(['c' => 'Cumple', 'nc' => 'No Cumple'])
+                    ->colors(['c' => 'success', 'nc' => 'danger'])
+                    ->icons(['c' => 'heroicon-m-check', 'nc' => 'heroicon-m-x-mark'])
+                    ->inline()
+                    ->required()
+                    ->helperText('Con «No Cumple» la solicitud queda rechazada, sin certificado.'),
+                Textarea::make('conclusion_observacion')
+                    ->label('Observaciones')
+                    ->required()
+                    ->maxLength(500)
+                    ->rows(4),
+            ]);
         return $schema
             ->components([
                 Wizard::make($pasos)
@@ -137,15 +157,60 @@ class EvaluacionChecklist extends Page implements HasForms
             ->statePath('data');
     }
 
+    /** Fija las respuestas que dependen de la ubicación y el tipo de los cilindros; el evaluador las puede cambiar. */
+    public function aplicarReglas(): void
+    {
+        $reglas = ChecklistTecnico::reglasDinamicas(
+            $this->data['ultra_liviano'] ?? null,
+            (array) ($this->data['ubicacion_cilindro'] ?? []),
+            ChecklistTecnico::esDedicado($this->record),
+        );
+
+        foreach ($reglas as $id => $valor) {
+            $this->data[$id] = $valor;
+        }
+    }
+
+    /** Hay ítems que ocultar solo si la lista arranca respondida. */
+    public function ocultaItems(): bool
+    {
+        return SystemSetting::enabled('checklist_prellenado');
+    }
+
+    /**
+     * Como en la plataforma anterior: se ocultan los ítems que arrancan en «Cumple» (y 5.1.22
+     * cuando la ubicación lo responde), salvo los que piden medición. Uno marcado «No cumple»
+     * o sin responder siempre queda a la vista.
+     */
+    private function estaOculto(array $item, mixed $valor): bool
+    {
+        $ocultable = ($item['inicial'] === 'c' && ! ($item['medicion'] ?? false)) || $item['id'] === 'ntc_5_1_22';
+
+        return $ocultable && ! $this->mostrarTodos && $this->ocultaItems() && in_array($valor, ['c', 'na'], true);
+    }
+
+    public function alternarItemsAction(): Action
+    {
+        return Action::make('alternarItems')
+            ->label(fn () => $this->mostrarTodos ? 'Ocultar ítems respondidos' : 'Mostrar todos los ítems')
+            ->icon(fn () => $this->mostrarTodos ? 'heroicon-o-eye-slash' : 'heroicon-o-eye')
+            ->color('gray')
+            ->visible(fn () => $this->ocultaItems())
+            ->action(fn () => $this->mostrarTodos = ! $this->mostrarTodos);
+    }
+
     /** Una fila del checklist: numeral + texto, C/NC/NA y, si aplica, la medición en cm. */
     private function fila(array $item): Section
     {
         $id = $item['id'];
         $conMedicion = $item['medicion'] ?? false;
         $minimo = $item['minimo'] ?? null;
+        $maximo = $item['maximo'] ?? null;
 
         return Section::make()
             ->compact()
+            // Se oculta con estilo, no con visible(): así el valor se sigue validando y guardando
+            ->extraAttributes(fn (Get $get) => $this->estaOculto($item, $get($id)) ? ['style' => 'display: none'] : [])
             ->schema([
                 Text::make(new HtmlString(
                     '<span class="ivs-numeral">'.e($item['numeral']).'</span> '.e($item['texto'])
@@ -165,12 +230,20 @@ class EvaluacionChecklist extends Page implements HasForms
                         ->numeric()
                         ->inputMode('decimal')
                         ->suffix('cm')
-                        ->placeholder($minimo ? "Mínimo {$minimo} cm" : 'Medición')
+                        ->placeholder(match (true) {
+                            (bool) $minimo => "Mínimo {$minimo} cm",
+                            (bool) $maximo => "Máximo {$maximo} cm",
+                            default => 'Medición',
+                        })
                         ->minValue(0)
                         ->visible(fn (Get $get) => $conMedicion && $get($id) === 'c')
                         ->required(fn (Get $get) => $conMedicion && $get($id) === 'c')
                         ->rules([
-                            fn (): Closure => function (string $attribute, $value, Closure $fail) use ($minimo, $item) {
+                            fn (): Closure => function (string $attribute, $value, Closure $fail) use ($minimo, $maximo, $item) {
+                                if ($maximo !== null && is_numeric($value) && $value > $maximo) {
+                                    $fail("{$item['numeral']}: {$value} cm supera el máximo de {$maximo} cm. Si no cumple, márquelo como «No cumple».");
+                                }
+
                                 if ($minimo !== null && is_numeric($value) && $value < $minimo) {
                                     $fail("{$item['numeral']}: {$value} cm es menor al mínimo de {$minimo} cm. Si no cumple, márquelo como «No cumple».");
                                 }
@@ -223,6 +296,46 @@ class EvaluacionChecklist extends Page implements HasForms
             ->modalSubmitActionLabel('Enviar a revisión')
             ->action(function () {
                 $this->guardar('enviada', validar: true);
+
+                // Conclusión «No Cumple»: la solicitud se rechaza y no llega al revisor
+                if (($this->data['conclusion'] ?? null) === 'nc') {
+                    $motivo = $this->data['conclusion_observacion'] ?? null;
+
+                    $this->record->update(['estado' => EstadoSolicitud::Rechazada->value, 'observacion_devolucion' => $motivo]);
+
+                    $placa = $this->record->placa();
+                    Correo::enviar($this->record->user, 'devolucion', "❌ Solicitud rechazada - Placa: {$placa}", 'emails.notificacion', [
+                        'titulo' => 'Solicitud rechazada',
+                        'saludo' => $this->record->user?->name,
+                        'cuerpo' => 'La inspección concluyó que la instalación no cumple. No se emite certificado.',
+                        'placa' => $placa,
+                        'detalle' => 'Motivo: '.$motivo,
+                        'boton_texto' => 'Ver solicitud',
+                        'boton_url' => \App\Filament\Resources\Solicituds\SolicitudResource::getUrl('view', ['record' => $this->record]),
+                    ]);
+
+                    Notification::make()->title('Solicitud rechazada')->body('Se avisó al taller con el motivo.')->warning()->send();
+                    $this->redirect(SolicitudResource::getUrl('index'));
+
+                    return;
+                }
+
+                // Modo de la plataforma anterior: el certificado sale ya; el revisor lo audita después
+                if (Solicitud::certificaAlEvaluar()) {
+                    $this->record->emitirCertificado();
+                    $this->notificarRevisores();
+
+                    Notification::make()
+                        ->title('La solicitud se guardó correctamente')
+                        ->body('El número de certificado generado es '.$this->record->codigo.'.')
+                        ->success()
+                        ->persistent()
+                        ->send();
+
+                    $this->redirect(SolicitudResource::getUrl('index'));
+
+                    return;
+                }
 
                 $this->record->update(['estado' => EstadoSolicitud::Evaluada->value]);
 

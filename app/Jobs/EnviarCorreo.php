@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Models\Solicitud;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
@@ -22,6 +23,8 @@ class EnviarCorreo implements ShouldQueue
         public string $asunto,
         public string $vista,
         public array $datos,
+        /** Id de la solicitud cuyo certificado va adjunto (se arma al enviar, no viaja en la cola). */
+        public ?int $certificadoDe = null,
     ) {}
 
     public function backoff(): array
@@ -31,7 +34,16 @@ class EnviarCorreo implements ShouldQueue
 
     public function handle(): void
     {
-        Mail::send($this->vista, $this->datos, fn ($message) => $message->to($this->para)->subject($this->asunto));
+        $solicitud = $this->certificadoDe ? Solicitud::find($this->certificadoDe) : null;
+        $pdf = $solicitud?->tieneCertificado() ? $solicitud->pdfCertificado()->output() : null;
+
+        Mail::send($this->vista, $this->datos, function ($message) use ($pdf) {
+            $message->to($this->para)->subject($this->asunto);
+
+            if ($pdf) {
+                $message->attachData($pdf, 'certificado.pdf', ['mime' => 'application/pdf']);
+            }
+        });
     }
 
     public function failed(\Throwable $e): void

@@ -27,6 +27,9 @@ class CreateSolicitud extends CreateRecord
 
     protected static string $resource = SolicitudResource::class;
 
+    // Mismo nombre que la entrada del menú y que la pantalla de la plataforma anterior
+    protected static ?string $title = 'Nueva Solicitud';
+
     protected static bool $canCreateAnother = false;
 
     /** Se muestra el botón "Empezar de cero" cuando se recuperó un borrador. */

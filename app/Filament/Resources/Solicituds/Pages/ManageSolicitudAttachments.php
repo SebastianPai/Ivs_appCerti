@@ -65,7 +65,7 @@ class ManageSolicitudAttachments extends Page implements HasForms
     public function form(Schema $schema): Schema
     {
         return $schema
-            ->components(AttachmentForm::components($this->record->id))
+            ->components(AttachmentForm::components($this->record->id, $this->record->serviceType))
             ->statePath('data');
     }
 

@@ -20,24 +20,34 @@ class SolicitudesAbiertasTable
         $puedeEvaluar = fn (Solicitud $record) => $record->esEvaluable() && (bool) Auth::user()?->hasRole('evaluador');
 
         return $table
-            ->modifyQueryUsing(fn (Builder $query) => $query->with(['user', 'serviceType', 'vehicle.brand', 'vehicle.model']))
+            ->modifyQueryUsing(fn (Builder $query) => $query->with(['user', 'serviceType', 'vehicle.brand', 'vehicle.model', 'vehicleIdentificationType']))
             // Lo más antiguo primero: se atiende por orden de llegada
             ->defaultSort('updated_at', 'asc')
+            // Mismas columnas y orden de «Solicitudes abiertas» en la plataforma anterior:
+            // Id | tipo | Identificación | Tipo Servicio | Taller. Lo demás va después.
             ->columns([
-                TextColumn::make('vehicle_identification')
-                    ->label('Placa')
+                TextColumn::make('id')
+                    ->label('Id')
                     ->searchable()
-                    ->weight('bold')
-                    ->description(fn (Solicitud $record) => $record->user?->name),
+                    ->sortable(),
+
+                TextColumn::make('vehicleIdentificationType.nombre')
+                    ->label('Tipo')
+                    ->formatStateUsing(fn (?string $state) => mb_strtoupper((string) $state))
+                    ->visibleFrom('lg'),
+
+                TextColumn::make('vehicle_identification')
+                    ->label('Identificación')
+                    ->searchable()
+                    ->weight('bold'),
+
+                TextColumn::make('serviceType.nombre')
+                    ->label('Tipo Servicio')
+                    ->visibleFrom('md'),
 
                 TextColumn::make('user.name')
                     ->label('Taller')
-                    ->searchable()
-                    ->visibleFrom('md'),
-
-                TextColumn::make('serviceType.nombre')
-                    ->label('Servicio')
-                    ->visibleFrom('lg'),
+                    ->searchable(),
 
                 TextColumn::make('estado')
                     ->badge()
@@ -77,6 +87,27 @@ class SolicitudesAbiertasTable
                     ->button()
                     ->visible($puedeEvaluar)
                     ->url(fn (Solicitud $record) => SolicitudResource::getUrl('verificacion', ['record' => $record])),
+
+                Action::make('cambiarAnualMasCambio')
+                    ->label('Cambiar anual + cambio')
+                    ->icon('heroicon-o-arrows-right-left')
+                    ->color('warning')
+                    ->visible(fn (Solicitud $record) => $puedeEvaluar($record) && $record->serviceType?->nombre === 'REVISION ANUAL')
+                    ->requiresConfirmation()
+                    ->modalHeading('¿Está seguro de cambiar el servicio de la solicitud a anual + cambio?')
+                    ->modalDescription('La revisión anual pasa a exigir un chip nuevo.')
+                    ->action(function (Solicitud $record) {
+                        $tipo = \App\Models\ServiceType::where('nombre', 'REVISION ANUAL + CAMBIO')->first();
+
+                        if (! $tipo) {
+                            \Filament\Notifications\Notification::make()->title('No fue posible el cambio de servicio')->danger()->send();
+
+                            return;
+                        }
+
+                        $record->update(['service_type_id' => $tipo->id]);
+                        \Filament\Notifications\Notification::make()->title('Cambio de servicio exitoso')->success()->send();
+                    }),
 
                 Action::make('ver')
                     ->label('Ver')

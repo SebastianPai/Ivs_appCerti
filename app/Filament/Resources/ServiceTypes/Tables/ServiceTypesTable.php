@@ -14,8 +14,15 @@ class ServiceTypesTable
     public static function configure(Table $table): Table
     {
         return $table
+            // Como «Gestión de tipos de servicio» en la plataforma anterior: Id | Descripción | …
+            ->defaultSort('id')
             ->columns([
+                TextColumn::make('id')
+                    ->label('Id')
+                    ->sortable(),
+
                 TextColumn::make('nombre')
+                    ->label('Descripción')
                     ->searchable(),
 
                 TextColumn::make('descripcion')

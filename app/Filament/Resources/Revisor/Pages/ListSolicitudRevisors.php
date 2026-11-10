@@ -14,22 +14,21 @@ class ListSolicitudRevisors extends ListRecords
 
     public function getTabs(): array
     {
-        $pendientes = EstadoSolicitud::Evaluada->value;
 
         return [
-            'pendientes' => Tab::make('Por auditar')
+            'pendientes' => Tab::make('Pendiente Revisar')
                 ->icon('heroicon-o-inbox-arrow-down')
-                ->modifyQueryUsing(fn (Builder $query) => $query->where('estado', $pendientes))
-                ->badge(fn () => SolicitudRevisorResource::getEloquentQuery()->where('estado', $pendientes)->count() ?: null)
+                ->modifyQueryUsing(fn (Builder $query) => $query->pendientesDeRevision())
+                ->badge(fn () => SolicitudRevisorResource::getEloquentQuery()->pendientesDeRevision()->count() ?: null)
                 ->badgeColor('warning'),
 
             'devueltas' => Tab::make('Devueltas al evaluador')
                 ->icon('heroicon-o-arrow-uturn-left')
                 ->modifyQueryUsing(fn (Builder $query) => $query->where('estado', EstadoSolicitud::CorreccionTecnica->value)),
 
-            'aprobadas' => Tab::make('Aprobadas')
+            'aprobadas' => Tab::make('Revisadas')
                 ->icon('heroicon-o-check-badge')
-                ->modifyQueryUsing(fn (Builder $query) => $query->where('estado', EstadoSolicitud::Aprobada->value)),
+                ->modifyQueryUsing(fn (Builder $query) => $query->where('estado', EstadoSolicitud::Aprobada->value)->whereNotNull('revisada_en')),
         ];
     }
 }

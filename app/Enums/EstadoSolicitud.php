@@ -12,6 +12,9 @@ namespace App\Enums;
  *                                          EVALUADA ──(revisor devuelve)──► CORRECCION_TECNICA ──► EVALUADA
  *                                              │
  *                                   (revisor aprueba) ──► APROBADA  (certificado disponible)
+ *
+ *  Salidas sin certificado: CANCELADA (la pide el taller con la solicitud devuelta, o el evaluador)
+ *  y RECHAZADA (el evaluador concluye «No cumple» al cerrar la lista de verificación).
  */
 enum EstadoSolicitud: string
 {
@@ -21,6 +24,8 @@ enum EstadoSolicitud: string
     case Evaluada = 'evaluada';
     case CorreccionTecnica = 'correccion_tecnica';
     case Aprobada = 'aprobada';
+    case Rechazada = 'rechazada';
+    case Cancelada = 'cancelada';
 
     public function label(): string
     {
@@ -31,6 +36,8 @@ enum EstadoSolicitud: string
             self::Evaluada => 'En revisión final',
             self::CorreccionTecnica => 'Corrección técnica',
             self::Aprobada => 'Aprobada',
+            self::Rechazada => 'Rechazada',
+            self::Cancelada => 'Cancelada',
         };
     }
 
@@ -43,6 +50,8 @@ enum EstadoSolicitud: string
             self::Evaluada => 'warning',
             self::CorreccionTecnica => 'danger',
             self::Aprobada => 'success',
+            self::Rechazada => 'danger',
+            self::Cancelada => 'gray',
         };
     }
 
@@ -50,6 +59,12 @@ enum EstadoSolicitud: string
     public static function evaluables(): array
     {
         return [self::Pendiente->value, self::Subsanada->value, self::CorreccionTecnica->value];
+    }
+
+    /** Estados finales: la solicitud ya no se mueve. */
+    public static function cerradas(): array
+    {
+        return [self::Aprobada->value, self::Rechazada->value, self::Cancelada->value];
     }
 
     /** Estados en los que el taller puede editar datos y adjuntos. */

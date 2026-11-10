@@ -2,9 +2,12 @@
     Lector de chip. Soporta:
     1) NFC del celular (Web NFC: Chrome en Android, sitio en https). Lee el registro de texto
        del chip y, si no tiene, usa el número de serie (UID).
-    2) Lector USB/Bluetooth tipo "teclado" (PC): basta con enfocar el campo y acercar el chip;
+    2) Lector Bluetooth de la plataforma anterior (Web Bluetooth: Chrome o Edge, en PC o Android,
+       sitio en https). Se le escribe «2» para leer un iButton o «3» para leer NFC y responde con
+       el IDROM de 16 caracteres; si devuelve la misma orden, no pudo leer.
+    3) Lector USB/Bluetooth tipo "teclado" (PC): basta con enfocar el campo y acercar el chip;
        el lector escribe el código. El botón "Usar lector USB" solo enfoca el campo.
-    3) Digitación manual en el mismo campo.
+    4) Digitación manual en el mismo campo.
 --}}
 <div
     x-data="{
@@ -14,10 +17,10 @@
         mensaje: null,
         error: null,
         abort: null,
-        input() { return document.getElementById('ivs-chip-input') },
+        input() { return document.getElementById('{{ $entrada ?? 'ivs-chip-input' }}') },
         escribir(valor) {
             const codigo = String(valor).trim().toUpperCase();
-            $wire.set('data.chip_codigo', codigo);
+            $wire.set('{{ $campo ?? 'data.chip_codigo' }}', codigo);
             this.mensaje = 'Chip leído: ' + codigo;
             if (navigator.vibrate) navigator.vibrate(150);
         },
@@ -45,6 +48,50 @@
             }
         },
         detener() { this.abort?.abort(); this.leyendo = false; },
+        soportaBle: 'bluetooth' in navigator,
+        ble: null,
+        bleNombre: null,
+        bleOcupado: false,
+        async conectarBle() {
+            this.error = null; this.mensaje = null;
+            if (! this.seguro) { this.error = 'El lector Bluetooth solo funciona si el sitio abre con https://'; return; }
+            try {
+                const servicio = '4fafc201-1fb5-459e-8fcc-c5c9c331914b';
+                const dispositivo = await navigator.bluetooth.requestDevice({ acceptAllDevices: true, optionalServices: [servicio] });
+                dispositivo.addEventListener('gattserverdisconnected', () => { this.ble = null; this.bleNombre = null; });
+                const gatt = await dispositivo.gatt.connect();
+                this.ble = await (await gatt.getPrimaryService(servicio)).getCharacteristic('beb5483e-36e1-4688-b7f5-ea07361b26a8');
+                this.bleNombre = dispositivo.name || 'lector';
+                this.mensaje = 'Conectado a: ' + this.bleNombre;
+            } catch (e) {
+                if (e.name !== 'NotFoundError') this.error = 'No se pudo conectar el lector: ' + e.message;
+            }
+        },
+        async leerBle(orden) {
+            this.error = null; this.mensaje = null; this.bleOcupado = true;
+            try {
+                // Alpine envuelve el objeto en un Proxy y el navegador solo acepta el original
+                const canal = Alpine.raw(this.ble);
+                await canal.writeValue(new TextEncoder().encode(orden));
+                // El lector tarda en responder: mientras devuelva la orden, se vuelve a leer
+                let texto = '';
+                for (let intento = 0; intento < 6; intento++) {
+                    texto = new TextDecoder().decode(await canal.readValue()).trim();
+                    if (/^[0-9A-Za-z]{16}$/.test(texto)) break;
+                    await new Promise((listo) => setTimeout(listo, 400));
+                }
+                if (/^[0-9A-Za-z]{16}$/.test(texto)) {
+                    this.escribir(texto);
+                } else {
+                    this.error = 'No se pudo leer el chip. Acérquelo de nuevo; si el problema continúa, es posible que el chip no funcione.';
+                }
+            } catch (e) {
+                this.error = 'Se perdió la conexión con el lector. Conéctelo de nuevo.';
+                this.ble = null; this.bleNombre = null;
+            } finally {
+                this.bleOcupado = false;
+            }
+        },
         usarUsb() {
             this.error = null;
             this.mensaje = 'Campo listo: acerque el chip al lector USB.';
@@ -58,6 +105,22 @@
         <template x-if="soportaNfc">
             <x-filament::button type="button" icon="heroicon-o-signal" x-on:click="leyendo ? detener() : leerNfc()" class="w-full sm:w-auto">
                 <span x-text="leyendo ? 'Esperando chip… (toque para cancelar)' : 'Leer con NFC del celular'"></span>
+            </x-filament::button>
+        </template>
+
+        <template x-if="soportaBle && ! ble">
+            <x-filament::button type="button" color="gray" icon="heroicon-o-link" x-on:click="conectarBle()" class="w-full sm:w-auto">
+                Conectar lector Bluetooth
+            </x-filament::button>
+        </template>
+        <template x-if="ble">
+            <x-filament::button type="button" icon="heroicon-o-key" x-on:click="leerBle('2')" x-bind:disabled="bleOcupado" class="w-full sm:w-auto">
+                Leer iButton
+            </x-filament::button>
+        </template>
+        <template x-if="ble">
+            <x-filament::button type="button" icon="heroicon-o-signal" x-on:click="leerBle('3')" x-bind:disabled="bleOcupado" class="w-full sm:w-auto">
+                Leer NFC con el lector
             </x-filament::button>
         </template>
 

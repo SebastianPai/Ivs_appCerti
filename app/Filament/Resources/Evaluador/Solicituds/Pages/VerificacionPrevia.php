@@ -76,8 +76,9 @@ class VerificacionPrevia extends Page implements HasForms
         return $schema
             ->components([
                 Checkbox::make('confirmo_conflicto')
-                    ->label('Declaro que no tengo conflicto de interés')
-                    ->helperText('No tengo vínculos comerciales, laborales ni personales con este taller ni con el propietario del vehículo.')
+                    // Texto literal de la plataforma anterior: es la declaración que firma el evaluador
+                    ->label('Confirmo que no tengo conflicto de intereses.')
+                    ->helperText('Declarar si usted en la actualidad o en los últimos dos años ha tenido relaciones comerciales, familiares o personales con el taller o servicio asignado, si la respuesta es afirmativa debe abstenerse de continuar con la evaluación e informar a Ivs Certificaciones, a través del correo electrónico: coordinadortalleres@ivscertificaciones.com')
                     ->accepted()
                     ->validationMessages(['accepted' => 'Debe aceptar la declaración para continuar.']),
             ])

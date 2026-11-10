@@ -17,6 +17,7 @@ class RoleSeeder extends Seeder
         'cliente',
         'evaluador',
         'revisor',
+        'externo', // solo descarga exportables
         ];
 
 

@@ -80,6 +80,7 @@ class RecorridoCompletoTest extends TestCase
                 'model_id' => $base->vehicle->model_id,
                 'year' => 2018,
                 'vehicle_type_id' => $base->vehicle->vehicle_type_id,
+                'municipio' => 'Cali, Valle del Cauca',
                 'fuel_base' => 'Gasolina',
                 'service_type_id' => $base->service_type_id,
                 'combustion_system_id' => $base->combustion_system_id,

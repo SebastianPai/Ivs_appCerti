@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Filament\Resources\Solicituds\Pages\CreateSolicitud;
 use App\Services\ColombiaGeo;
+use Illuminate\Support\Facades\Http;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -39,6 +40,44 @@ class BorradorYGeoTest extends TestCase
         // El borrador es por usuario: otro taller no lo ve
         $this->actingAs($this->usuario('cliente'));
         Livewire::test(CreateSolicitud::class)->assertSet('hayBorrador', false);
+    }
+
+    public function test_al_digitar_la_placa_se_consulta_sicom_y_luego_los_datos_propios(): void
+    {
+        \App\Models\SystemSetting::put('sicom_consulta_evaluacion', true);
+        $this->actingAs($taller = $this->usuario('cliente'));
+        $anterior = $this->solicitud($taller, ['vehicle_identification' => 'LKL239']);
+
+        Http::fake(['www.datos.gov.co/*' => fn ($request) => Http::response($request['placa'] === 'LKL239' ? [[
+            'estado' => 'ACTIVO', 'placa' => 'LKL239', 'idrom_chip' => '59000001C01D4E01', 'fecha_instalacion' => '2024-08-22',
+            'municipio_instalacion' => 'MEDELLIN', 'departamento_instalacion' => 'ANTIOQUIA',
+        ]] : [])]);
+
+        // Está en SICOM y en el sistema: trae la instalación de SICOM y el vehículo propio
+        Livewire::test(CreateSolicitud::class)
+            ->set('data.vehicle_identification', 'lkl-239')
+            ->assertSet('data.fecha_instalacion', fn ($fecha) => str_starts_with((string) $fecha, '2024-08-22'))
+            ->assertSet('data.brand_id', $anterior->vehicle->brand_id)
+            // Del último servicio: sistema y equipos, pero no el propietario ni el tipo de servicio
+            ->assertSet('data.technology_id', $anterior->technology_id)
+            ->assertSet('data.regulators', fn ($equipos) => array_column($equipos, 'numero_serie') === ['REG-1'])
+            ->assertSet('data.cilindros', fn ($equipos) => array_column($equipos, 'numero_serie') === ['CIL-1'])
+            ->assertSet('data.owner_nombre', null)
+            ->assertSet('data.service_type_id', null)
+            ->assertNotified('Vehículo encontrado');
+
+        // No está en ninguno de los dos: avisa y deja seguir
+        Livewire::test(CreateSolicitud::class)
+            ->set('data.vehicle_identification', 'ZZZ999')
+            ->assertSet('data.fecha_instalacion', null)
+            ->assertNotified('No se encontraron registros');
+
+        // SICOM caído: no bloquea
+        Http::fake(['www.datos.gov.co/*' => Http::response(null, 500)]);
+        Livewire::test(CreateSolicitud::class)
+            ->set('data.vehicle_identification', 'ZZZ998')
+            ->assertSet('data.vehicle_identification', 'ZZZ998')
+            ->assertSet('data.fecha_instalacion', null);
     }
 
     public function test_el_admin_ve_la_evaluacion_en_modo_consulta_con_mensaje_claro(): void

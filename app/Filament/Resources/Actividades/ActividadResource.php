@@ -37,7 +37,7 @@ class ActividadResource extends Resource
 
     protected static ?string $pluralModelLabel = 'auditoría';
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Administración';
+    protected static string|\UnitEnum|null $navigationGroup = 'Administrador';
 
     protected static ?int $navigationSort = 98;
 

@@ -20,6 +20,11 @@ class RestrictAccessMiddleware
     {
         $user = Auth::user();
 
+        // Cuenta sin acceso: se le cierra la sesión que tuviera abierta, sea cual sea su rol
+        if ($user && $user->activo === false) {
+            return $this->expulsar($request, 'access.restricted');
+        }
+
         if (! $user || $user->hasRole('admin')) {
             return $next($request);
         }

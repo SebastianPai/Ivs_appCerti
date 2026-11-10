@@ -18,31 +18,41 @@ class SolicitudRevisorTable
         return $table
             ->modifyQueryUsing(fn (Builder $query) => $query->with(['user', 'serviceType', 'verificacion.evaluador']))
             ->defaultSort('updated_at', 'asc')
+            // Mismas columnas y orden del listado del revisor en la plataforma anterior:
+            // Id | Estado | Placa o Chasis | Nombre Taller | Servicio | Certificado. Lo demás va después.
             ->columns([
-                TextColumn::make('vehicle_identification')
-                    ->label('Placa')
+                TextColumn::make('id')
+                    ->label('Id')
                     ->searchable()
-                    ->weight('bold')
-                    ->description(fn (Solicitud $record) => $record->user?->name),
-
-                TextColumn::make('verificacion.evaluador.name')
-                    ->label('Evaluador')
-                    ->visibleFrom('md'),
-
-                TextColumn::make('serviceType.nombre')
-                    ->label('Servicio')
-                    ->visibleFrom('lg'),
+                    ->sortable(),
 
                 TextColumn::make('estado')
                     ->badge()
                     ->formatStateUsing(fn (?string $state) => EstadoSolicitud::labelDe($state))
                     ->color(fn (?string $state) => EstadoSolicitud::colorDe($state)),
 
+                TextColumn::make('vehicle_identification')
+                    ->label('Placa o Chasis')
+                    ->searchable()
+                    ->weight('bold'),
+
+                TextColumn::make('user.name')
+                    ->label('Nombre Taller')
+                    ->searchable(),
+
+                TextColumn::make('serviceType.nombre')
+                    ->label('Servicio')
+                    ->visibleFrom('md'),
+
                 TextColumn::make('codigo')
                     ->label('Certificado')
+                    ->searchable()
                     ->placeholder('—')
-                    ->copyable()
-                    ->visibleFrom('md'),
+                    ->copyable(),
+
+                TextColumn::make('verificacion.evaluador.name')
+                    ->label('Evaluador')
+                    ->visibleFrom('lg'),
 
                 TextColumn::make('updated_at')
                     ->label('Actualizada')
@@ -57,10 +67,10 @@ class SolicitudRevisorTable
             ])
             ->recordActions([
                 Action::make('revisar')
-                    ->label(fn (Solicitud $record) => $record->estado === EstadoSolicitud::Evaluada->value ? 'Auditar' : 'Ver')
+                    ->label(fn (Solicitud $record) => $record->estaPendienteDeRevision() ? 'Revisar' : 'Ver')
                     ->icon('heroicon-o-eye')
                     ->button()
-                    ->color(fn (Solicitud $record) => $record->estado === EstadoSolicitud::Evaluada->value ? 'primary' : 'gray')
+                    ->color(fn (Solicitud $record) => $record->estaPendienteDeRevision() ? 'primary' : 'gray')
                     ->url(fn (Solicitud $record) => SolicitudRevisorResource::getUrl('view', ['record' => $record])),
             ])
             ->recordUrl(fn (Solicitud $record) => SolicitudRevisorResource::getUrl('view', ['record' => $record]))

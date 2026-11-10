@@ -43,6 +43,12 @@ class VehicleModel extends Model
         'year_end',
     ];
 
+    protected static function booted(): void
+    {
+        static::saved(fn (self $modelo) => Cache::forget("vehicle_models_brand_{$modelo->brand_id}"));
+        static::deleted(fn (self $modelo) => Cache::forget("vehicle_models_brand_{$modelo->brand_id}"));
+    }
+
     public function brand()
     {
         return $this->belongsTo(VehicleBrand::class, 'brand_id');

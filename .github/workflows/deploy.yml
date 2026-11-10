@@ -1,0 +1,130 @@
+# Despliegue a cPanel (app.ivscertificaciones.com)
+#
+# Cada push a main: GitHub compila el front e instala dependencias de producción,
+# copia por SSH a /home/wwwivsce/ivs_app solo lo que cambió y corre las migraciones.
+# En el servidor no queda ningún servicio corriendo.
+#
+# Nunca se tocan en el servidor: .env, storage/ (archivos subidos y logs), el .htaccess
+# de la raíz y lo que cPanel crea en public/ (.user.ini, php.ini, .well-known, cgi-bin).
+#
+# Secreto requerido en GitHub (Settings > Secrets and variables > Actions):
+#   SSH_PRIVATE_KEY  llave privada autorizada en cPanel > SSH Access
+
+name: Desplegar a cPanel
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: despliegue-produccion
+  cancel-in-progress: false
+
+env:
+  SSH_HOST: s822.use1.mysecurecloudhost.com
+  SSH_PORT: 22
+  SSH_USER: wwwivsce
+  APP_DIR: /home/wwwivsce/ivs_app
+
+jobs:
+  desplegar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mbstring, intl, gd, zip, bcmath, pdo_mysql, fileinfo
+          tools: composer:v2
+          coverage: none
+
+      - name: Dependencias PHP de producción
+        run: composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist --no-progress
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Compilar el front
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+
+      - name: Preparar SSH
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          # Llaves del servidor fijadas (evita conectarse a un servidor suplantado)
+          cat >> ~/.ssh/known_hosts <<'EOF'
+          s822.use1.mysecurecloudhost.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINGdZGGzIP/VAYiBojaPjM58fmvhY/8tVYtTdN0ZKtGj
+          s822.use1.mysecurecloudhost.com ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBCYM6YbI/wmYF5y9ZM1U5FmGvm1oepVhPN//xKW0MqziuBYnSrKH7tmmuUK77vfxQqfjnUOaDkEe8EXM+rwzWL0=
+          EOF
+          sed -i 's/^ *//' ~/.ssh/known_hosts
+
+      - name: Modo mantenimiento
+        run: |
+          ssh -i ~/.ssh/id_deploy -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" 'bash -s' <<'REMOTO'
+          set -e
+          cd /home/wwwivsce/ivs_app
+          PHP=$(for p in /opt/cpanel/ea-php82/root/usr/bin/php /opt/alt/php82/usr/bin/php /usr/local/bin/php php; do
+                  command -v "$p" >/dev/null 2>&1 && "$p" -r 'exit(PHP_VERSION_ID >= 80200 ? 0 : 1);' 2>/dev/null && { echo "$p"; break; }
+                done)
+          [ -n "$PHP" ] || { echo "No hay PHP 8.2+ en el servidor"; exit 1; }
+          echo "$PHP" > storage/framework/php_bin
+          "$PHP" -v | head -1
+          "$PHP" artisan down --retry=30 || true
+          REMOTO
+
+      - name: Copiar archivos
+        run: |
+          rsync -rlz --delete --checksum \
+            -e "ssh -i ~/.ssh/id_deploy -p $SSH_PORT" \
+            --exclude='/.git/' \
+            --exclude='/.github/' \
+            --exclude='/node_modules/' \
+            --exclude='/tests/' \
+            --exclude='/.env' \
+            --exclude='/.env.*' \
+            --exclude='/.htaccess' \
+            --exclude='/storage/' \
+            --exclude='/public/storage' \
+            --exclude='/public/.user.ini' \
+            --exclude='/public/php.ini' \
+            --exclude='/public/.well-known/' \
+            --exclude='/public/cgi-bin/' \
+            --exclude='/public/hot' \
+            --exclude='error_log' \
+            --exclude='/.phpunit.result.cache' \
+            --exclude='/phpunit.xml' \
+            ./ "$SSH_USER@$SSH_HOST:$APP_DIR/"
+
+      - name: Migrar y limpiar cachés
+        run: |
+          ssh -i ~/.ssh/id_deploy -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" 'bash -s' <<'REMOTO'
+          set -e
+          cd /home/wwwivsce/ivs_app
+          PHP=$(cat storage/framework/php_bin)
+          "$PHP" artisan migrate --force
+          "$PHP" artisan optimize:clear
+          "$PHP" artisan filament:optimize-clear || true
+          "$PHP" artisan up
+          REMOTO
+
+      - name: Salir de mantenimiento si algo falló
+        if: failure()
+        run: |
+          ssh -i ~/.ssh/id_deploy -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" \
+            'cd /home/wwwivsce/ivs_app && "$(cat storage/framework/php_bin 2>/dev/null || echo php)" artisan up' || true
+
+      - name: Comprobar que la app responde
+        run: |
+          sleep 3
+          code=$(curl -s -o /dev/null -w '%{http_code}' -L https://app.ivscertificaciones.com/ivs/login)
+          echo "HTTP $code"
+          [ "$code" = "200" ]

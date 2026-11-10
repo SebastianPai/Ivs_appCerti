@@ -41,6 +41,51 @@ class ChipValidationService
         }
 
         $chip = Chip::whereRaw('UPPER(codigo) = ?', [$codigo])->first();
+        $chipNuevo = (bool) $solicitud->serviceType?->chip_nuevo;
+        // «Permitir consulta a sicom inspector y taller» (Configuración General). Apagado, como está hoy
+        // en la plataforma anterior, el chip no se contrasta con SICOM.
+        $consultaSicom = SystemSetting::enabled('sicom_consulta_evaluacion');
+        $sicom = $consultaSicom ? self::enSicom($codigo) : false;
+
+        // Como en la plataforma anterior: un servicio con chip nuevo no acepta uno que SICOM ya conoce
+        // y una revisión solo sigue con el chip que el vehículo tiene registrado en SICOM.
+        if ($chipNuevo && $sicom) {
+            throw ValidationException::withMessages([
+                $campo => 'No es correcto asignar el mismo chip a una solicitud que requiere un cambio de chip o la asignación de uno nuevo.',
+            ]);
+        }
+
+        if (! $chipNuevo && $sicom && ! self::esDelVehiculo($sicom, $solicitud)) {
+            throw ValidationException::withMessages([
+                $campo => "El chip «{$codigo}» está registrado en SICOM para el vehículo ".self::vehiculoEnSicom($sicom).'.',
+            ]);
+        }
+
+        if (! $chip && ! $chipNuevo && ! $consultaSicom) {
+            // Sin consulta a SICOM se acepta el chip que trae el vehículo, tal como lo leyó el evaluador
+            $chip = Chip::create(['codigo' => $codigo, 'activo' => false, 'descripcion' => 'Chip del vehículo, sin consulta a SICOM']);
+        }
+
+        if (! $chip && ! $chipNuevo) {
+            if ($sicom === null) {
+                throw ValidationException::withMessages([
+                    $campo => 'El chip que está consultando no existe en el SICOM. No es posible continuar.',
+                ]);
+            }
+
+            if ($sicom === false) {
+                throw ValidationException::withMessages([
+                    $campo => "El chip «{$codigo}» no está registrado en el sistema y no fue posible verificarlo en SICOM. Intente de nuevo.",
+                ]);
+            }
+
+            // El chip de una revisión ya viene instalado: no sale del inventario, lo respalda SICOM
+            $chip = Chip::create([
+                'codigo' => $codigo,
+                'activo' => false,
+                'descripcion' => 'Chip del vehículo, verificado en SICOM',
+            ]);
+        }
 
         if (! $chip) {
             throw ValidationException::withMessages([
@@ -48,11 +93,6 @@ class ChipValidationService
             ]);
         }
 
-        if (! $chip->activo) {
-            throw ValidationException::withMessages([
-                $campo => "El chip «{$codigo}» está inactivo.",
-            ]);
-        }
 
         // Un chip identifica a un solo vehículo: no puede usarse en solicitudes de otra placa.
         $usadoEnOtroVehiculo = $chip->verificaciones()
@@ -67,6 +107,49 @@ class ChipValidationService
             ]);
         }
 
+        // Inicial, cambio de chip y garantía instalan un chip nuevo: no sirve uno que ya se usó
+        if ($solicitud->serviceType?->chip_nuevo && $chip->verificaciones()->where('solicitud_id', '!=', $solicitud->id)->exists()) {
+            throw ValidationException::withMessages([
+                $campo => 'No es correcto asignar el mismo chip a una solicitud que requiere un cambio de chip o la asignación de uno nuevo.',
+            ]);
+        }
+
+        // Inactivo = ya se gastó en otra solicitud o el admin lo retiró. El de esta misma solicitud
+        // sigue valiendo (reenvío tras una devolución) y una revisión usa el chip que ya trae el vehículo.
+        if ($chipNuevo && ! $chip->activo && ! $chip->verificaciones()->where('solicitud_id', $solicitud->id)->exists()) {
+            throw ValidationException::withMessages([
+                $campo => "El chip «{$codigo}» está inactivo.",
+            ]);
+        }
+
         return $chip;
+    }
+
+    /** Registro del chip en SICOM, null si no existe y false si no se pudo consultar. */
+    private static function enSicom(string $codigo): array|false|null
+    {
+        try {
+            return SicomAbierto::porChip($codigo);
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    /** SICOM identifica el vehículo por placa o por VIN; lo que no tiene lo marca «SIN DEFINIR». */
+    private static function esDelVehiculo(array $sicom, Solicitud $solicitud): bool
+    {
+        $registrados = array_filter(
+            [strtoupper(trim($sicom['placa'] ?? '')), strtoupper(trim($sicom['vin'] ?? ''))],
+            fn (string $valor) => $valor !== '' && $valor !== 'SIN DEFINIR',
+        );
+
+        return $registrados === [] || in_array(strtoupper((string) $solicitud->vehicle_identification), $registrados, true);
+    }
+
+    private static function vehiculoEnSicom(array $sicom): string
+    {
+        $placa = strtoupper(trim($sicom['placa'] ?? ''));
+
+        return $placa !== '' && $placa !== 'SIN DEFINIR' ? $placa : strtoupper(trim($sicom['vin'] ?? ''));
     }
 }

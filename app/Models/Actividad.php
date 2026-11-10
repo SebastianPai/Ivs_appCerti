@@ -56,6 +56,7 @@ class Actividad extends Model
         'documento' => 'Documento',
         'sincronizacion' => 'Sincronización sin conexión',
         'aviso' => 'Aviso enviado',
+        'exportacion' => 'Exportación',
         'login' => 'Inicio de sesión',
         'login_fallido' => 'Intento fallido',
         'logout' => 'Cierre de sesión',

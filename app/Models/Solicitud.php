@@ -123,6 +123,7 @@ class Solicitud extends Model
         'combustion_system_id',
         'application_type_id',
         'technology_id',
+        'fecha_instalacion',
 
         'estado',
         'observacion_devolucion',
@@ -132,13 +133,16 @@ class Solicitud extends Model
         'observaciones_revisor',
         'revisor_id',
         'fecha_aprobacion',
+        'revisada_en',
         'vence_el',
         'aviso_vencimiento_at',
     ];
 
     protected $casts = [
         'fecha_aprobacion' => 'datetime',
+        'revisada_en' => 'datetime',
         'vence_el' => 'date',
+        'fecha_instalacion' => 'date',
         'aviso_vencimiento_at' => 'datetime',
     ];
 
@@ -250,6 +254,164 @@ class Solicitud extends Model
     public function estaAprobada(): bool
     {
         return $this->estado === EstadoSolicitud::Aprobada->value;
+    }
+
+    /**
+     * Como en la plataforma anterior: el certificado sale cuando el evaluador envía la lista y el
+     * revisor solo marca la solicitud como revisada o la devuelve. Apagado, el certificado espera
+     * la aprobación del revisor.
+     */
+    public static function certificaAlEvaluar(): bool
+    {
+        return SystemSetting::enabled('certificado_al_evaluar');
+    }
+
+    /**
+     * Cierra la solicitud como aprobada. Genera número y vigencia, salvo en el cambio de chip,
+     * que se finaliza sin certificado. Si vuelve tras una devolución conserva número y fechas.
+     */
+    public function emitirCertificado(?int $revisorId = null): void
+    {
+        $sinCertificado = (bool) $this->serviceType?->esCambioDeChip();
+        $expedicion = $this->fecha_aprobacion ?? now();
+
+        DB::transaction(function () use ($sinCertificado, $expedicion, $revisorId) {
+            $this->update([
+                'estado' => EstadoSolicitud::Aprobada->value,
+                'fecha_aprobacion' => $expedicion,
+                'revisor_id' => $revisorId,
+                'revisada_en' => $revisorId ? now() : null,
+                ...($sinCertificado ? [] : [
+                    'codigo' => $this->codigo ?? self::generarCodigo($this),
+                    'vence_el' => $this->vence_el ?? self::calcularVencimiento($expedicion)->toDateString(),
+                    'aviso_vencimiento_at' => null,
+                ]),
+            ]);
+
+            $this->verificacion?->update(['estado' => 'aprobada']);
+        });
+
+        if ($sinCertificado) {
+            return;
+        }
+
+        $placa = $this->placa();
+
+        // Como en la plataforma anterior: el certificado va adjunto, en cada envío y en cada reenvío
+        $datos = [
+            'placa' => $placa,
+            'detalle' => 'Certificado N.º '.$this->codigo.' · vigente hasta el '.$this->vence_el?->format('d/m/Y'),
+            'boton_url' => \App\Filament\Resources\Solicituds\SolicitudResource::getUrl('view', ['record' => $this]),
+        ];
+
+        \App\Support\Correo::enviar($this->user, 'aprobacion', "Vehículo Certificado - Placa: {$placa}", 'emails.certificado', $datos, $this->id);
+
+        if (filled($this->owner_email) && strcasecmp($this->owner_email, (string) $this->user?->email) !== 0) {
+            \App\Support\Correo::enviar($this->owner_email, 'aprobacion', "Vehículo Certificado - Placa: {$placa}", 'emails.certificado', $datos, $this->id);
+        }
+    }
+
+    /** Firma corta del número: evita que alguien recorra los certificados cambiando el número en el enlace. */
+    public static function firmaVerificacion(string $codigo): string
+    {
+        return substr(hash_hmac('sha256', 'certificado|'.$codigo, (string) config('app.key')), 0, 16);
+    }
+
+    /** Página pública a la que lleva el QR del certificado. */
+    public function urlVerificacion(): string
+    {
+        return route('certificado.verificar', ['codigo' => $this->codigo, 'f' => self::firmaVerificacion((string) $this->codigo)]);
+    }
+
+    /** PDF del certificado individual (el mismo que se descarga y el que va adjunto al correo). */
+    public function pdfCertificado(): \Barryvdh\DomPDF\PDF
+    {
+        $this->load([
+            'user', 'serviceType', 'combustionSystem', 'technology', 'vehicle.brand', 'vehicle.model', 'vehicle.type',
+            'regulators.brand', 'cilindros.brand', 'verificacion.evaluador', 'verificacion.chip', 'revisor',
+        ]);
+
+        return \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.certificado', ['record' => $this])->setPaper('letter', 'landscape');
+    }
+
+    /** Certificada (o cambio de chip aceptado) que el revisor todavía no ha mirado. */
+    public function estaPendienteDeRevision(): bool
+    {
+        return $this->estado === EstadoSolicitud::Evaluada->value || ($this->estaAprobada() && $this->revisada_en === null);
+    }
+
+    public function scopePendientesDeRevision(Builder $query): Builder
+    {
+        return $query->where(fn (Builder $q) => $q
+            ->where('estado', EstadoSolicitud::Evaluada->value)
+            ->orWhere(fn (Builder $a) => $a->where('estado', EstadoSolicitud::Aprobada->value)->whereNull('revisada_en')));
+    }
+
+    /** Aprobada y con número: el cambio de chip se aprueba sin certificado. */
+    public function tieneCertificado(): bool
+    {
+        return $this->estaAprobada() && filled($this->codigo);
+    }
+
+    /** Se puede cancelar mientras no esté cerrada ni tenga certificado. */
+    public function esCancelable(): bool
+    {
+        return blank($this->codigo) && ! in_array($this->estado, EstadoSolicitud::cerradas(), true);
+    }
+
+    public function cancelar(): void
+    {
+        $this->update(['estado' => EstadoSolicitud::Cancelada->value]);
+    }
+
+    /**
+     * Avisos para el evaluador y el revisor en una revisión anual: equipos que no coinciden con
+     * los de la última certificación del mismo vehículo. No bloquean.
+     *
+     * @return array{reguladores: array<int, string>, cilindros: array<int, string>}
+     */
+    public function alertasEquipos(): array
+    {
+        $alertas = ['reguladores' => [], 'cilindros' => []];
+
+        if ($this->serviceType?->clase !== 'anual') {
+            return $alertas;
+        }
+
+        $anterior = self::query()
+            ->where('vehicle_identification', $this->vehicle_identification)
+            ->where('id', '!=', $this->id)
+            ->where('estado', EstadoSolicitud::Aprobada->value)
+            ->latest('fecha_aprobacion')
+            ->with(['regulators', 'cilindros'])
+            ->first();
+
+        if (! $anterior) {
+            return $alertas;
+        }
+
+        $clave = fn ($equipo) => $equipo->brand_id.'|'.mb_strtoupper(trim((string) $equipo->numero_serie));
+        $reguladores = $anterior->regulators->keyBy($clave);
+        $cilindros = $anterior->cilindros->keyBy($clave);
+
+        foreach ($this->regulators()->with('brand')->get() as $r) {
+            if (! $reguladores->has($clave($r))) {
+                $alertas['reguladores'][] = "El regulador ingresado en esta solicitud con serial {$r->numero_serie} y marca {$r->brand?->nombre}. La marca o el número de serie proporcionado en la solicitud no coincide con el registrado en la revisión anterior.";
+            }
+        }
+
+        foreach ($this->cilindros()->with('brand')->get() as $c) {
+            $previo = $cilindros->get($clave($c));
+            $inicio = "El cilindro ingresado en esta solicitud con serial {$c->numero_serie} y marca {$c->brand?->nombre}.";
+
+            if (! $previo) {
+                $alertas['cilindros'][] = "{$inicio} La marca o el número de serie proporcionado en la solicitud no coincide con el registrado en la revisión anterior.";
+            } elseif ((string) $previo->getRawOriginal('fecha_prueba') !== (string) $c->getRawOriginal('fecha_prueba')) {
+                $alertas['cilindros'][] = "{$inicio} La fecha de prueba hidrostática en la solicitud no coincide con el registrado en la revisión anterior.";
+            }
+        }
+
+        return $alertas;
     }
 
     /** Placa (o chasis) legible para correos y títulos. */
@@ -385,9 +547,33 @@ class Solicitud extends Model
         return $texto;
     }
 
-    /** Número de certificado: IVS-AAAA-000123 */
-    public static function generarCodigo(self $solicitud): string
+    /**
+     * Número de certificado: consecutivo global, como en la plataforma anterior (161271, 161272…).
+     * El siguiente número se guarda en Configuración y se toma con bloqueo para que dos evaluadores
+     * que envían a la vez no reciban el mismo. Debe llamarse dentro de una transacción.
+     */
+    public static function generarCodigo(?self $solicitud = null): string
     {
-        return sprintf('IVS-%s-%06d', now()->format('Y'), $solicitud->id);
+        DB::table('system_settings')->insertOrIgnore(['key' => 'consecutivo_certificado', 'enabled' => true, 'created_at' => now(), 'updated_at' => now()]);
+
+        $ajuste = DB::table('system_settings')->where('key', 'consecutivo_certificado')->lockForUpdate()->first();
+        $numero = max(1, (int) (json_decode((string) $ajuste->meta, true)['siguiente'] ?? 1));
+
+        // Por si el contador quedó por detrás de un número ya usado (datos migrados)
+        while (self::where('codigo', (string) $numero)->exists()) {
+            $numero++;
+        }
+
+        DB::table('system_settings')->where('key', 'consecutivo_certificado')->update([
+            'meta' => json_encode(['siguiente' => $numero + 1]),
+            'updated_at' => now(),
+        ]);
+
+        return (string) $numero;
+    }
+
+    public static function siguienteNumeroCertificado(): int
+    {
+        return max(1, (int) (SystemSetting::meta('consecutivo_certificado', 'siguiente') ?? 1));
     }
 }

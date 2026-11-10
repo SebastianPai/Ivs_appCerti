@@ -123,7 +123,7 @@ class Indicadores
             'aprobadas' => $aprobadas->count(),
             'tasa_devolucion' => $creadas->isEmpty() ? null : round($this->devueltasAlTaller()->count() * 100 / $creadas->count()),
             'estancadas' => Solicitud::query()
-                ->where('estado', '!=', EstadoSolicitud::Aprobada->value)
+                ->whereNotIn('estado', EstadoSolicitud::cerradas())
                 ->where('updated_at', '<', now()->subDays(5))
                 ->count(),
         ];

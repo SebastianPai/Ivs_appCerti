@@ -108,7 +108,7 @@ class SolicitudsTable
                     ->button()
                     ->url(fn (Solicitud $record) => route('solicitud.certificado', $record))
                     ->openUrlInNewTab()
-                    ->visible(fn (Solicitud $record) => $record->estaAprobada()),
+                    ->visible(fn (Solicitud $record) => $record->tieneCertificado()),
 
                 Action::make('renovar')
                     ->label('Renovar')
@@ -127,6 +127,18 @@ class SolicitudsTable
                         ->icon('heroicon-o-paper-clip')
                         ->url(fn (Solicitud $record) => SolicitudResource::getUrl('attachments', ['record' => $record]))
                         ->visible(fn (Solicitud $record) => SolicitudResource::canEdit($record)),
+                    // Como en la plataforma anterior: el taller cancela una solicitud que le devolvieron
+                    Action::make('cancelar')
+                        ->label('Cancelar solicitud')
+                        ->icon('heroicon-o-x-circle')
+                        ->color('warning')
+                        ->visible(fn (Solicitud $record) => $record->estado === EstadoSolicitud::DevueltaTaller->value && $record->esCancelable() && SolicitudResource::canEdit($record))
+                        ->requiresConfirmation()
+                        ->modalHeading(fn (Solicitud $record) => "¿Está seguro de cancelar la solicitud {$record->id}?")
+                        ->action(function (Solicitud $record) {
+                            $record->cancelar();
+                            \Filament\Notifications\Notification::make()->title('La solicitud se canceló correctamente')->success()->send();
+                        }),
                 ]),
             ])
             ->recordUrl(fn (Solicitud $record) => SolicitudResource::getUrl('view', ['record' => $record]))

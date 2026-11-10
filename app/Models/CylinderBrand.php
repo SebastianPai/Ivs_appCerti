@@ -27,6 +27,7 @@ class CylinderBrand extends Model
 
     protected $fillable = [
         'nombre',
+        'codigo_sicom',
     ];
 
     protected $casts = [

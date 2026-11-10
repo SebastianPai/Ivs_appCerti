@@ -29,7 +29,7 @@ Pasos del evaluador (cada uno exige el anterior, no se pueden saltar por URL):
 
 1. **Filtro de seguridad** (`VerificacionPrevia`): declaración de no conflicto de interés + captura GPS.
 2. **Chip y fotos** (`Evaluador\...\ViewSolicitud`): lectura del chip, revisión de documentos del taller, 4 fotos obligatorias. Desde aquí también se puede devolver al taller.
-3. **Checklist técnico** (`EvaluacionChecklist`): preguntas definidas en `app/Support/ChecklistTecnico.php` (la misma fuente la usa el revisor).
+3. **Checklist técnico** (`EvaluacionChecklist`): los 61 ítems y 9 secciones de la norma, definidos en `app/Support/ChecklistTecnico.php` (la misma fuente la usa el revisor). En Configuración se puede activar el prellenado: los ítems habituales llegan sugeridos como «Cumple» o «N/A» y el evaluador corrige.
 
 ### Asignaciones (Administración → Usuarios → menú ⋮ de cada fila)
 
@@ -90,6 +90,29 @@ php artisan test
 ```
 
 Cubren permisos por rol, acceso por URL a registros ajenos, protección del certificado, validaciones del formulario, el chip, el flujo completo taller → evaluador → revisor → certificado, archivos privados, correos, 2FA, auditoría, vigencias, tablero e inspección sin conexión.
+
+## Exportables (Reportes → Exportables)
+
+Archivos de formato fijo, compatibles con los de la plataforma anterior: una hoja `data`, fila 1 con los encabezados exactos y todas las celdas como texto. Cada rol ve solo los suyos; el rango máximo es de un año y cada descarga queda en Auditoría.
+
+| Exportable | Archivo | Roles | Una fila por | Filtra por |
+|---|---|---|---|---|
+| Solicitudes inspeccionadas | `Exportadorevisor_export_…` | admin, revisor | solicitud | fecha de inspección |
+| SICOM · por cilindro | `ExportadoSicom_export_…` | admin | cilindro (fechas `DD/MM/AAAA`) | fecha de certificación |
+| SICOM · por certificado | `ExportadoSicomCertificados_export_…` | admin, externo | certificado | fecha de certificación |
+| IVS · por taller o evaluador | `ExportadoIvs_export_…` | admin | certificado | certificación o creación |
+| Operaciones realizadas | `OperacionesRealizadas_export_…` | admin, evaluador | inspección enviada | fecha de inspección |
+
+Datos que alimentan los archivos SICOM:
+
+- **Código SICOM de las marcas:** Administración → Marcas de cilindros / Marcas de reguladores. Sin código, la marca sale vacía.
+- **NIT del taller:** Usuarios → editar el taller. **NIT del organismo certificador:** Configuración.
+- **Fecha de instalación:** la digita el taller en la solicitud (opcional). Por cilindro: en un servicio inicial es la fecha del servicio; si no, la digitada o el 1 de enero del año modelo. Por certificado: la digitada o el 1 de febrero del año modelo (mínimo 2007).
+- **Clase de servicio** (Administración → Tipos de servicio): «Inicial» y «Cambio de chip» cambian las reglas anteriores; el cambio de chip no sale en el archivo por certificado. Ahí mismo van el código y el nombre que viajan como `id_tipo_certificado` y `tipo_certificacion`.
+- **Próxima prueba hidrostática:** fecha de prueba del cilindro + 5 años.
+- **Placa y VIN:** identificado por placa, el VIN va vacío; identificado por chasis, la placa va vacía y el chasis sale como VIN.
+
+El rol `externo` solo entra a Exportables. La fecha final siempre se incluye y, si no hay filas, se avisa en vez de descargar un archivo vacío. Columnas y consultas: `app/Exports/Exportables.php`.
 
 ## Inspección sin conexión (evaluador)
 

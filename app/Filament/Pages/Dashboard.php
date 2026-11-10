@@ -20,6 +20,20 @@ class Dashboard extends BaseDashboard
 {
     use HasFiltersForm;
 
+    // Primera entrada de la barra, con el nombre que tenía en la plataforma anterior
+    protected static ?string $navigationLabel = 'Menú';
+
+    /** Mismo saludo de la pantalla de inicio de la plataforma anterior. */
+    public function getHeading(): string
+    {
+        return 'Bienvenido, '.Auth::user()?->name;
+    }
+
+    public function getSubheading(): ?string
+    {
+        return 'Encuentra lo que buscas en el menú superior';
+    }
+
     public static function veIndicadores(): bool
     {
         return (bool) Auth::user()?->hasAnyRole(['admin', 'revisor']);
@@ -60,6 +74,8 @@ class Dashboard extends BaseDashboard
     {
         return [
             AccountWidget::class,
+            // Primero lo que tiene a alguien bloqueado: talleres que esperan la fecha de su registro
+            Widgets\RegistrosTallerPendientes::class,
             Widgets\ResumenSolicitudes::class,
             Widgets\IndicadoresTiempos::class,
             Widgets\SolicitudesPorMes::class,

@@ -49,6 +49,7 @@ class Vehicle extends Model
         'model_id',
         'vehicle_type_id',
         'year',
+        'municipio',
         'vin',
         'placa',
         'motor',

@@ -24,18 +24,20 @@
             </div>
         @endif
 
-        @if (! empty($datos['verificacion_cilindros']))
+        @if (filled($datos['ultra_liviano'] ?? null) || ! empty($datos['ubicacion_cilindro']))
             <div>
                 <h3 class="mb-2 text-sm font-semibold text-gray-950 dark:text-white">Cilindros</h3>
-                <div class="grid gap-2">
-                    @foreach ($datos['verificacion_cilindros'] as $c)
-                        <div class="ivs-fila">
-                            <span class="font-mono font-semibold">{{ $c['numero_serie'] ?? 's/n' }}</span>
-                            <span>Ultraliviano: <strong>{{ ($c['ultra_liviano'] ?? null) === 'si' ? 'Sí' : 'No' }}</strong></span>
-                            <span>{{ collect($c['ubicacion'] ?? [])->map(fn ($u) => ChecklistTecnico::UBICACIONES_CILINDRO[$u] ?? $u)->join(', ') ?: '—' }}</span>
-                        </div>
-                    @endforeach
+                <div class="ivs-fila">
+                    <span>Ultraliviano: <strong>{{ ($datos['ultra_liviano'] ?? null) === 'si' ? 'Sí' : 'No' }}</strong></span>
+                    <span>Ubicación: {{ collect($datos['ubicacion_cilindro'] ?? [])->map(fn ($u) => ChecklistTecnico::UBICACIONES_CILINDRO[$u] ?? $u)->join(' · ') ?: '—' }}</span>
                 </div>
+            </div>
+        @endif
+
+        @if (filled($datos['conclusion'] ?? null))
+            <div class="ivs-fila">
+                <span>Conclusión: <strong>{{ $datos['conclusion'] === 'c' ? 'Cumple' : 'No Cumple' }}</strong></span>
+                <span>Observaciones del evaluador: {{ $datos['conclusion_observacion'] ?? '—' }}</span>
             </div>
         @endif
 

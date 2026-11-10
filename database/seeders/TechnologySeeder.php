@@ -10,9 +10,9 @@ class TechnologySeeder extends Seeder
     public function run(): void
     {
         $items = [
-            'Tecnología de 3ra generación',
-            'Tecnología de 4ta generación',
-            'Inyección multipunto',
+            'TERCERA',
+            'CUARTA',
+            'QUINTA',
         ];
 
         foreach ($items as $item) {

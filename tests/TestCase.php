@@ -32,6 +32,9 @@ abstract class TestCase extends BaseTestCase
         $this->seed(RoleSeeder::class);
         Filament::setCurrentPanel('admin');
 
+        // Los talleres de prueba no traen servicios asignados: la regla se prueba aparte (ServiciosPorTallerTest)
+        \Illuminate\Support\Facades\DB::table('system_settings')->where('key', 'servicios_por_taller')->update(['enabled' => false]);
+
         // Ninguna prueba debe salir a internet
         Http::preventStrayRequests();
     }
@@ -45,6 +48,13 @@ abstract class TestCase extends BaseTestCase
             ...$attrs,
         ]);
         $user->assignRole($rol);
+
+        // Por defecto, usuarios listos para entrar: correo confirmado y, si es taller, registro vigente.
+        // Las pruebas de esas reglas pasan el valor en null.
+        $user->forceFill([
+            'email_verified_at' => array_key_exists('email_verified_at', $attrs) ? $attrs['email_verified_at'] : now(),
+            'fecha_vencimiento' => array_key_exists('fecha_vencimiento', $attrs) ? $attrs['fecha_vencimiento'] : ($rol === 'cliente' ? now()->addYear() : null),
+        ])->save();
 
         return $user;
     }

@@ -15,6 +15,7 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
+use Illuminate\Support\Facades\Auth;
 use Spatie\Permission\Models\Role;
 
 class UserForm
@@ -41,10 +42,16 @@ class UserForm
 
                         Select::make('role')
                             ->label('Rol')
-                            ->options(fn () => Role::orderBy('name')->pluck('name', 'name')->map(fn ($r) => ucfirst($r)))
+                            ->options(fn () => Role::orderBy('name')->pluck('name', 'name')->map(fn ($r) => User::ROLES[$r] ?? ucfirst($r)))
                             ->required()
                             ->live()
-                            ->helperText('cliente = taller que solicita · evaluador = inspecciona · revisor = aprueba'),
+                            ->helperText('Cliente = taller que solicita · Inspector = evaluador que inspecciona · Revisor = audita · Externo Exportado = solo descarga «Mis Exportados» (el archivo SICOM por certificado), sin ver solicitudes'),
+
+                        Toggle::make('activo')
+                            ->label('Cuenta con acceso')
+                            ->default(true)
+                            ->disabled(fn (?User $record) => $record?->is(Auth::user()) ?? false)
+                            ->helperText('Apagado equivale a «Sin Acceso»: la persona no puede entrar, pero conserva su rol, su historial y su lugar en los listados.'),
 
                         TextInput::make('password')
                             ->label('Contraseña')
@@ -84,15 +91,18 @@ class UserForm
                 ->columnSpanFull()
                 ->visible(fn (Get $get) => $get('role') === 'cliente')
                 ->schema([
-                    Toggle::make('is_taller')
-                        ->label('Es un taller certificado')
-                        ->live(),
-
+                    TextInput::make('nit')
+                        ->label('NIT')
+                        ->placeholder('900123456-7')
+                        ->maxLength(20)
+                        ->regex('/^\d{5,15}(-\d)?$/')
+                        ->validationMessages(['regex' => 'Escriba el NIT solo con números y, si lo tiene, el dígito de verificación tras un guion.'])
+                        ->helperText('Sale en el exportable SICOM por certificado.'),
+                    // Todo cliente es taller: el registro de Industria y Comercio aplica siempre
                     Grid::make(['default' => 1, 'md' => 3])
-                        ->visible(fn (Get $get) => (bool) $get('is_taller'))
                         ->schema([
                             FileUpload::make('camara_comercio')
-                                ->label('Cámara de comercio')
+                                ->label('Registro Industria y Comercio')
                                 ->disk('local')
                                 ->visibility('private')
                                 ->directory('camara-comercio')
@@ -102,7 +112,7 @@ class UserForm
                                 ->downloadable(),
 
                             DatePicker::make('fecha_radicado')
-                                ->label('Fecha de radicado')
+                                ->label('Fecha expedición registro')
                                 ->native(false)
                                 ->displayFormat('d/m/Y')
                                 ->maxDate(now())
@@ -113,10 +123,10 @@ class UserForm
                                 )),
 
                             DatePicker::make('fecha_vencimiento')
-                                ->label('Vence')
+                                ->label('Fecha vencimiento registro')
                                 ->native(false)
                                 ->displayFormat('d/m/Y')
-                                ->helperText('Se calcula a un año del radicado.')
+                                ->helperText('Se calcula a un año de la expedición. Vencido o sin fecha, el taller no puede entrar.')
                                 ->disabled()
                                 ->dehydrated(),
                         ]),

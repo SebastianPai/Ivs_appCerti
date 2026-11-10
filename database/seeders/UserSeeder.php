@@ -52,6 +52,9 @@ class UserSeeder extends Seeder
             );
 
 
+            // email_verified_at no se asigna en masa: sin esto los usuarios de prueba no podrían entrar
+            $user->forceFill(['email_verified_at' => $user->email_verified_at ?? now()])->save();
+
             if (! $user->hasRole($data['role'])) {
                 $user->assignRole($data['role']);
             }

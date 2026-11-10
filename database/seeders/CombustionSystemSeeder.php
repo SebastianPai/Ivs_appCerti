@@ -9,7 +9,7 @@ class CombustionSystemSeeder extends Seeder
 {
     public function run(): void
     {
-        $items = ['Carburado', 'Inyección secuencial', 'Inyección directa'];
+        $items = ['CARBURADO', 'INYECTADO'];
 
         foreach ($items as $item) {
             CombustionSystem::firstOrCreate(['nombre' => $item]);

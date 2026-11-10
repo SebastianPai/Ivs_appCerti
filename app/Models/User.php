@@ -3,6 +3,7 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -76,7 +77,7 @@ use App\Models\Solicitud;
  * @method static \Illuminate\Database\Eloquent\Builder<static>|User withoutRole($roles, $guard = null)
  * @mixin \Eloquent
  */
-class User extends Authenticatable implements FilamentUser, HasAppAuthentication, HasAppAuthenticationRecovery
+class User extends Authenticatable implements FilamentUser, HasAppAuthentication, HasAppAuthenticationRecovery, MustVerifyEmail
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use Auditable, HasFactory, Notifiable, HasRoles;
@@ -101,10 +102,12 @@ class User extends Authenticatable implements FilamentUser, HasAppAuthentication
         'password',
         'department',
         'city',
-        'is_taller', 
+        'is_taller',
+        'nit',
         'camara_comercio', 
         'fecha_radicado', 
         'fecha_vencimiento',
+        'activo',
     ];
 
     /**
@@ -131,6 +134,7 @@ class User extends Authenticatable implements FilamentUser, HasAppAuthentication
             'password' => 'hashed',
             'fecha_radicado' => 'date',
             'fecha_vencimiento' => 'date',
+            'activo' => 'boolean',
             'app_authentication_secret' => 'encrypted',
             'app_authentication_recovery_codes' => 'encrypted:array',
         ];
@@ -176,7 +180,77 @@ class User extends Authenticatable implements FilamentUser, HasAppAuthentication
      */
     public function canAccessPanel(Panel $panel): bool
     {
-        return $this->hasAnyRole(['admin', 'cliente', 'evaluador', 'revisor']);
+        // Una cuenta «sin acceso» conserva su rol y su historial, pero no entra
+        return $this->activo !== false && $this->hasAnyRole(['admin', 'cliente', 'evaluador', 'revisor', 'externo']);
+    }
+
+    /** Nombre de cada rol como aparece en la plataforma anterior. */
+    public const ROLES = [
+        'admin' => 'Admin',
+        'cliente' => 'Cliente',
+        'evaluador' => 'Inspector',
+        'revisor' => 'Revisor',
+        'externo' => 'Externo Exportado',
+    ];
+
+    // -------- Servicios que el taller puede pedir --------
+
+    public function servicios()
+    {
+        return $this->belongsToMany(ServiceType::class, 'taller_servicio', 'user_id', 'service_type_id')->withTimestamps();
+    }
+
+    /**
+     * Tipos de servicio que puede pedir este taller: los activos que el admin le asignó
+     * («Asignación de servicios»). Con la regla apagada en Configuración, todos los activos.
+     */
+    public function serviciosDisponibles()
+    {
+        return ServiceType::query()
+            ->where('activo', true)
+            ->when(
+                SystemSetting::enabled('servicios_por_taller'),
+                fn ($q) => $q->whereIn('id', $this->servicios()->select('service_types.id')),
+            )
+            // Mismo orden del catálogo de la plataforma anterior: INICIAL, REVISION ANUAL, CAMBIO DE CHIP…
+            ->orderBy('id');
+    }
+
+    // -------- Registro de Industria y Comercio del taller --------
+
+    /** Todo cliente es un taller: no hay clientes de otro tipo (se confirmó con la plataforma anterior). */
+    public function esTaller(): bool
+    {
+        return $this->hasRole('cliente');
+    }
+
+    /** Correo de confirmación con el enlace del panel. Lo reenvía el admin desde Administrar Usuarios. */
+    public function enviarConfirmacionDeCorreo(): void
+    {
+        $aviso = app(\Filament\Auth\Notifications\VerifyEmail::class);
+        $aviso->url = \Filament\Facades\Filament::getVerifyEmailUrl($this);
+
+        $this->notify($aviso);
+    }
+
+    /** Vigente = con fecha de vencimiento que no ha pasado. Sin fecha cuenta como vencido. */
+    public function registroVigente(): bool
+    {
+        return $this->fecha_vencimiento !== null && ! $this->fecha_vencimiento->endOfDay()->isPast();
+    }
+
+    /** Como en la plataforma anterior: con el registro vencido el taller no entra (se puede apagar en Configuración). */
+    public function debeActualizarRegistro(): bool
+    {
+        return $this->esTaller() && ! $this->registroVigente() && SystemSetting::enabled('registro_taller_required');
+    }
+
+    /** Talleres que hoy no pueden entrar por su registro: sin fecha o vencido. */
+    public function scopeConRegistroPendiente($query)
+    {
+        return $query
+            ->whereHas('roles', fn ($roles) => $roles->where('name', 'cliente'))
+            ->where(fn ($q) => $q->whereNull('fecha_vencimiento')->orWhereDate('fecha_vencimiento', '<', now()->toDateString()));
     }
 
     // Evaluador → clientes (talleres)

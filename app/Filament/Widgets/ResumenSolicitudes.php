@@ -21,6 +21,12 @@ class ResumenSolicitudes extends StatsOverviewWidget
 
     protected int|string|array $columnSpan = 'full';
 
+    /** El rol externo solo descarga exportables: no ve cifras de la operación. */
+    public static function canView(): bool
+    {
+        return (bool) Auth::user()?->hasAnyRole(['admin', 'cliente', 'evaluador', 'revisor']);
+    }
+
     protected function getStats(): array
     {
         $user = Auth::user();
@@ -44,7 +50,7 @@ class ResumenSolicitudes extends StatsOverviewWidget
                 ->descriptionIcon('heroicon-m-exclamation-circle')
                 ->color('danger')
                 ->url($url.'?activeTab=requiere_accion'),
-            Stat::make('En proceso', $q()->whereNotIn('estado', [EstadoSolicitud::DevueltaTaller->value, EstadoSolicitud::Aprobada->value])->count())
+            Stat::make('En proceso', $q()->whereNotIn('estado', [EstadoSolicitud::DevueltaTaller->value, ...EstadoSolicitud::cerradas()])->count())
                 ->description('En evaluación o revisión')
                 ->descriptionIcon('heroicon-m-clock')
                 ->url($url),
@@ -75,7 +81,7 @@ class ResumenSolicitudes extends StatsOverviewWidget
             Stat::make('Esperando al taller', $q()->where('estado', EstadoSolicitud::DevueltaTaller->value)->count())
                 ->descriptionIcon('heroicon-m-clock')
                 ->url($url.'?activeTab=en_taller'),
-            Stat::make('En revisión', $q()->where('estado', EstadoSolicitud::Evaluada->value)->count())
+            Stat::make('En revisión', $q()->pendientesDeRevision()->count())
                 ->descriptionIcon('heroicon-m-eye')
                 ->color('info')
                 ->url($url.'?activeTab=en_revision'),
@@ -88,7 +94,7 @@ class ResumenSolicitudes extends StatsOverviewWidget
         $url = SolicitudRevisorResource::getUrl('index');
 
         return [
-            Stat::make('Por auditar', $q()->where('estado', EstadoSolicitud::Evaluada->value)->count())
+            Stat::make('Por auditar', $q()->pendientesDeRevision()->count())
                 ->descriptionIcon('heroicon-m-inbox-arrow-down')
                 ->color('warning')
                 ->url($url),

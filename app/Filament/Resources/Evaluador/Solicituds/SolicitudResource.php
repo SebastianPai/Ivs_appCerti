@@ -29,15 +29,15 @@ class SolicitudResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedClipboardDocumentCheck;
 
-    protected static ?string $navigationLabel = 'Solicitudes por evaluar';
+    protected static ?string $navigationLabel = 'Solicitudes Abiertas';
 
     protected static ?string $modelLabel = 'solicitud';
 
     protected static ?string $pluralModelLabel = 'solicitudes';
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Evaluación';
+    protected static string|\UnitEnum|null $navigationGroup = 'Evaluador';
 
-    protected static ?int $navigationSort = 2;
+    protected static ?int $navigationSort = 1;
 
     public static function form(Schema $schema): Schema
     {

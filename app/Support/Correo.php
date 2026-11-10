@@ -24,11 +24,12 @@ class Correo
         'documentos' => 'Documentos cargados o corregidos por el taller',
         'devolucion' => 'Devoluciones (al taller o al evaluador)',
         'revision' => 'Evaluación lista para revisión (al revisor)',
-        'aprobacion' => 'Certificado aprobado (al taller)',
+        'aprobacion' => 'Vehículo certificado, con el certificado adjunto (al taller y al propietario)',
+        'inspector' => 'Evaluador asignado o desvinculado (al taller)',
         'vencimiento' => 'Aviso de vencimiento del certificado (taller y propietario)',
     ];
 
-    public static function enviar(User|string|null $para, string $tipo, string $asunto, string $vista, array $datos): void
+    public static function enviar(User|string|null $para, string $tipo, string $asunto, string $vista, array $datos, ?int $certificadoDe = null): void
     {
         if ($para instanceof User) {
             self::avisoEnApp($para, $asunto, $datos);
@@ -41,7 +42,7 @@ class Correo
         }
 
         try {
-            EnviarCorreo::dispatch($email, $asunto, $vista, $datos);
+            EnviarCorreo::dispatch($email, $asunto, $vista, $datos, $certificadoDe);
         } catch (\Throwable $e) {
             // Si la cola no está disponible, el flujo no se interrumpe
             Log::warning("No se pudo encolar el correo «{$asunto}» a {$email}: {$e->getMessage()}");

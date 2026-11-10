@@ -38,6 +38,7 @@ class FlujoCertificacionTest extends TestCase
                 'model_id' => $vehiculo->model_id,
                 'year' => 2016,
                 'vehicle_type_id' => $vehiculo->vehicle_type_id,
+                'municipio' => 'Cali, Valle del Cauca',
                 'fuel_base' => 'Gasolina',
                 'service_type_id' => $base->service_type_id,
                 'combustion_system_id' => $base->combustion_system_id,
@@ -105,6 +106,8 @@ class FlujoCertificacionTest extends TestCase
         Storage::fake('public');
         Storage::fake('local');
         SystemSetting::put('chip_required', true);
+        // Modo en que el certificado espera al revisor (el otro modo se prueba en FlujoPlataformaAnteriorTest)
+        SystemSetting::put('certificado_al_evaluar', false);
         Chip::create(['codigo' => 'CHIP-001', 'activo' => true]);
 
         $taller = $this->usuario('cliente');
@@ -132,6 +135,10 @@ class FlujoCertificacionTest extends TestCase
         // --- Paso 2: chip y fotos
         $fotos = collect(range(0, 3))->mapWithKeys(fn ($i) => ["foto_{$i}" => UploadedFile::fake()->image('foto.jpg')])->all();
 
+        // Con la consulta a SICOM encendida, un chip que SICOM no conoce no pasa en una revisión
+        \App\Models\SystemSetting::put('sicom_consulta_evaluacion', true);
+        \Illuminate\Support\Facades\Http::fake(['www.datos.gov.co/*' => \Illuminate\Support\Facades\Http::response([])]);
+
         Livewire::test(EvaluadorView::class, ['record' => $solicitud->id])
             ->fillForm(['chip_codigo' => 'NO-EXISTE', ...$fotos])
             ->callAction('continuar')
@@ -148,7 +155,7 @@ class FlujoCertificacionTest extends TestCase
         $this->assertCount(4, $verificacion->fotos);
 
         // --- Paso 3: checklist
-        $respuestas = ['verificacion_cilindros' => [['numero_serie' => 'CIL-1', 'ultra_liviano' => 'no', 'ubicacion' => ['baul']]]];
+        $respuestas = ['ultra_liviano' => 'no', 'ubicacion_cilindro' => ['baul'], 'conclusion' => 'c', 'conclusion_observacion' => 'Instalación conforme'];
         foreach (ChecklistTecnico::secciones() as $seccion) {
             foreach ($seccion['items'] as $item) {
                 $respuestas[$item['id']] = 'c';
@@ -160,9 +167,6 @@ class FlujoCertificacionTest extends TestCase
 
         $deshacer = Repeater::fake();
         $checklist = Livewire::test(EvaluacionChecklist::class, ['record' => $solicitud->id]);
-
-        // Cada cilindro declarado aparece con su número de serie (antes salía "N/A")
-        $this->assertSame(['CIL-1'], collect($checklist->get('data.verificacion_cilindros'))->pluck('numero_serie')->values()->all());
 
         $checklist->callAction('guardarBorrador');
 
@@ -193,7 +197,7 @@ class FlujoCertificacionTest extends TestCase
 
         $solicitud->refresh();
         $this->assertSame(EstadoSolicitud::Aprobada->value, $solicitud->estado);
-        $this->assertMatchesRegularExpression('/^IVS-\d{4}-\d{6}$/', $solicitud->codigo);
+        $this->assertMatchesRegularExpression('/^\d+$/', $solicitud->codigo);
         $this->assertSame($revisor->id, $solicitud->revisor_id);
 
         $this->actingAs($taller)->get("/solicitud/{$solicitud->id}/certificado")->assertOk();

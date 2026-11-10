@@ -74,7 +74,7 @@ class CampoController extends Controller
 
         $solicitudes = EvaluadorResource::getEloquentQuery()
             ->whereIn('estado', EstadoSolicitud::evaluables())
-            ->with(['user:id,name', 'vehicle.brand', 'vehicle.model', 'cilindros:id,solicitud_id,numero_serie', 'verificaciones' => fn ($q) => $q->where('evaluador_id', $user->id)->with('fotos', 'chip')])
+            ->with(['user:id,name', 'vehicle.brand', 'vehicle.model', 'applicationType', 'serviceType', 'cilindros:id,solicitud_id,numero_serie', 'verificaciones' => fn ($q) => $q->where('evaluador_id', $user->id)->with('fotos', 'chip')])
             ->orderBy('updated_at')
             ->limit(100)
             ->get()
@@ -91,6 +91,8 @@ class CampoController extends Controller
                     'estado' => EstadoSolicitud::labelDe($s->estado),
                     'observacion_revisor' => $s->estado === EstadoSolicitud::CorreccionTecnica->value ? $s->observaciones_revisor : null,
                     'cilindros' => $s->cilindros->pluck('numero_serie')->values(),
+                    'dedicado' => ChecklistTecnico::esDedicado($s),
+                    'fotos_requeridas' => $s->serviceType?->fotos_obligatorias ?? true,
                     'guardado' => [
                         'declaracion' => (bool) $v?->conflicto_interes,
                         'chip' => $v?->chip?->codigo,
@@ -108,6 +110,12 @@ class CampoController extends Controller
             'chip_obligatorio' => SystemSetting::enabled('chip_required'),
             'fotos_obligatorias' => ViewSolicitud::FOTOS_OBLIGATORIAS,
             'ubicaciones' => ChecklistTecnico::UBICACIONES_CILINDRO,
+            'reglas' => [
+                'ubicacion_items' => ChecklistTecnico::ITEMS_UBICACION,
+                'ubicacion' => ChecklistTecnico::REGLAS_UBICACION,
+                'ultraliviano_items' => ChecklistTecnico::ITEMS_ULTRALIVIANO,
+                'dedicado_items' => ChecklistTecnico::ITEMS_DEDICADO,
+            ],
             'secciones' => collect(ChecklistTecnico::secciones())->map(fn ($s) => [
                 'titulo' => $s['titulo'],
                 'descripcion' => $s['descripcion'],
@@ -117,6 +125,7 @@ class CampoController extends Controller
                     'texto' => $i['texto'],
                     'medicion' => (bool) ($i['medicion'] ?? false),
                     'minimo' => $i['minimo'] ?? null,
+                    'maximo' => $i['maximo'] ?? null,
                 ])->values(),
             ])->values(),
             'solicitudes' => $solicitudes,
@@ -228,7 +237,7 @@ class CampoController extends Controller
             }
 
             $tiene = $verificacion->fotos()->pluck('nombre_foto');
-            $faltan = collect(ViewSolicitud::FOTOS_OBLIGATORIAS)->diff($tiene);
+            $faltan = ($registro->serviceType?->fotos_obligatorias ?? true) ? collect(ViewSolicitud::FOTOS_OBLIGATORIAS)->diff($tiene) : collect();
 
             if ($faltan->isNotEmpty()) {
                 $avisos[] = 'Faltan fotos obligatorias: '.$faltan->implode(', ').'.';
@@ -283,19 +292,14 @@ class CampoController extends Controller
             }
         }
 
-        $series = $solicitud->cilindros->pluck('numero_serie');
-        $cilindros = collect($entrada['verificacion_cilindros'] ?? [])
-            ->filter(fn ($c) => is_array($c) && $series->contains($c['numero_serie'] ?? null))
-            ->map(fn ($c) => [
-                'numero_serie' => $c['numero_serie'],
-                'ultra_liviano' => in_array($c['ultra_liviano'] ?? null, ['si', 'no'], true) ? $c['ultra_liviano'] : null,
-                'ubicacion' => array_values(array_intersect((array) ($c['ubicacion'] ?? []), array_keys(ChecklistTecnico::UBICACIONES_CILINDRO))),
-            ])
-            ->values()
-            ->all();
+        if (in_array($entrada['ultra_liviano'] ?? null, ['si', 'no'], true)) {
+            $limpio['ultra_liviano'] = $entrada['ultra_liviano'];
+        }
 
-        if ($cilindros !== []) {
-            $limpio['verificacion_cilindros'] = $cilindros;
+        $ubicaciones = array_values(array_intersect((array) ($entrada['ubicacion_cilindro'] ?? []), array_keys(ChecklistTecnico::UBICACIONES_CILINDRO)));
+
+        if ($ubicaciones !== []) {
+            $limpio['ubicacion_cilindro'] = $ubicaciones;
         }
 
         return $limpio;

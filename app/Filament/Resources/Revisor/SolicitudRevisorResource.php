@@ -23,17 +23,17 @@ class SolicitudRevisorResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedShieldCheck;
 
-    protected static ?string $navigationLabel = 'Auditoría final';
+    protected static ?string $navigationLabel = 'Solicitudes';
 
     protected static ?string $modelLabel = 'solicitud';
 
     protected static ?string $pluralModelLabel = 'solicitudes';
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Revisión';
+    protected static string|\UnitEnum|null $navigationGroup = 'Revisor';
 
     protected static ?string $slug = 'revisor/auditoria';
 
-    protected static ?int $navigationSort = 3;
+    protected static ?int $navigationSort = 1;
 
     public static function infolist(Schema $schema): Schema
     {
@@ -91,7 +91,7 @@ class SolicitudRevisorResource extends Resource
             return null;
         }
 
-        return static::getEloquentQuery()->where('estado', EstadoSolicitud::Evaluada->value)->count() ?: null;
+        return static::getEloquentQuery()->pendientesDeRevision()->count() ?: null;
     }
 
     public static function getNavigationBadgeColor(): ?string

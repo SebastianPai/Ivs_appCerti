@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Solicituds\Schemas;
 
+use App\Models\ServiceType;
 use App\Support\Archivo;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Repeater;
@@ -24,6 +25,21 @@ class AttachmentForm
         'Adjunto Acta desmonte *' => true,
         'Adjunto Prueba hidrostática *' => true,
     ];
+
+    /** Requisito del tipo de servicio (ServiceType::REQUISITOS) que corresponde a cada documento obligatorio. */
+    public const REQUISITO = [
+        'Adjunto Preconversión *' => 'preconversion',
+        'Adjunto Posconversión *' => 'posconversion',
+        'Adjunto Certificado conformidad *' => 'conformidad',
+        'Adjunto Acta desmonte *' => 'acta_desmonte',
+        'Adjunto Prueba hidrostática *' => 'prueba_hidrostatica',
+    ];
+
+    /** Un documento es obligatorio si lo es en general y el tipo de servicio lo exige. */
+    public static function obligatorio(string $nombre, ?ServiceType $tipo): bool
+    {
+        return self::DOCUMENTOS[$nombre] && ($tipo?->exige(self::REQUISITO[$nombre]) ?? true);
+    }
 
     /** Nombre del campo del documento fijo número $i (doc_0, doc_1, ...). */
     public static function campo(int $i): string
@@ -55,7 +71,7 @@ class AttachmentForm
             ->helperText('PDF o foto (JPG/PNG), máximo 10 MB.');
     }
 
-    public static function components(int $solicitudId): array
+    public static function components(int $solicitudId, ?ServiceType $tipo = null): array
     {
         $directorio = "solicitudes/{$solicitudId}/adjuntos";
 
@@ -64,8 +80,8 @@ class AttachmentForm
             // Ojo: el nombre no puede llevar punto ("fijos.0"): Filament valida tipo/tamaño con ese
             // nombre y un punto lo vuelve una ruta anidada, con lo que la validación no se aplicaba.
             $fijos[] = self::archivo(self::campo($i), $directorio)
-                ->label(self::etiqueta($nombre))
-                ->required(self::DOCUMENTOS[$nombre]);
+                ->label(self::etiqueta($nombre).(self::DOCUMENTOS[$nombre] && ! self::obligatorio($nombre, $tipo) ? ' (no se exige en este servicio)' : ''))
+                ->required(self::obligatorio($nombre, $tipo));
         }
 
         return [

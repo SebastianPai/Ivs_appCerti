@@ -9,6 +9,7 @@ use App\Filament\Resources\Solicituds\Pages\CreateSolicitud;
 use App\Filament\Widgets\DesempenoTalleres;
 use App\Filament\Widgets\IndicadoresTiempos;
 use App\Filament\Widgets\ProductividadEquipo;
+use App\Filament\Widgets\ResumenSolicitudes;
 use App\Filament\Widgets\SolicitudesPorDepartamento;
 use App\Filament\Widgets\SolicitudesPorMes;
 use App\Jobs\EnviarCorreo;
@@ -262,6 +263,12 @@ class MejorasMercadoTest extends TestCase
         Livewire::test(ProductividadEquipo::class)->assertOk()->assertSee('Eva Luadora')->assertSee('Rev Isor');
         Livewire::test(DesempenoTalleres::class)->assertOk()->assertSee('Taller Norte');
 
+        // El navegador los pide por nombre al cargarlos en diferido: deben estar registrados en el panel
+        foreach ([ResumenSolicitudes::class, IndicadoresTiempos::class, SolicitudesPorMes::class, SolicitudesPorDepartamento::class, ProductividadEquipo::class, DesempenoTalleres::class] as $widget) {
+            $nombre = 'app.filament.widgets.'.\Illuminate\Support\Str::kebab(class_basename($widget));
+            $this->assertSame($widget, app(\Livewire\Mechanisms\ComponentRegistry::class)->getClass($nombre));
+        }
+
         $this->flushSession();
         $this->actingAs($taller);
         $this->assertFalse(IndicadoresTiempos::canView());
@@ -323,7 +330,7 @@ class MejorasMercadoTest extends TestCase
             'observaciones' => 'Todo en orden',
             'checklist' => json_encode([
                 'code_4_5' => 'c', 'code_4_5_valor' => 12, 'ntc_5_4_3' => 'nc', 'inventado' => 'c', 'doc_0957' => 'tal vez',
-                'verificacion_cilindros' => [['numero_serie' => 'CIL-1', 'ultra_liviano' => 'no', 'ubicacion' => ['baul', 'luna']]],
+                'ultra_liviano' => 'no', 'ubicacion_cilindro' => ['baul', 'luna'],
             ]),
         ];
 
@@ -342,16 +349,20 @@ class MejorasMercadoTest extends TestCase
         $this->assertNotNull($v->sincronizada_en);
         $this->assertCount(4, $v->fotos);
         Storage::disk('local')->assertExists($v->fotos->first()->ruta_foto);
-        $this->assertEquals(['code_4_5' => 'c', 'code_4_5_valor' => 12, 'ntc_5_4_3' => 'nc', 'verificacion_cilindros' => [['numero_serie' => 'CIL-1', 'ultra_liviano' => 'no', 'ubicacion' => ['baul']]]], $v->datos_checklist, 'Solo entra lo que existe en el checklist oficial');
+        $this->assertEquals(['code_4_5' => 'c', 'code_4_5_valor' => 12, 'ntc_5_4_3' => 'nc', 'ultra_liviano' => 'no', 'ubicacion_cilindro' => ['baul']], $v->datos_checklist, 'Solo entra lo que existe en el checklist oficial');
         $this->assertSame(now()->subHours(3)->format('Y-m-d H:i'), \Illuminate\Support\Carbon::parse(\App\Models\EvaluacionGeolocalizacion::first()->registrado_en)->format('Y-m-d H:i'), 'Se guarda la hora real de la captura en sitio');
         $this->assertDatabaseHas('actividades', ['solicitud_id' => $solicitud->id, 'evento' => 'sincronizacion']);
 
         // El checklist en línea abre con lo diligenciado sin conexión
         $this->get("/ivs/evaluacion/solicitudes/{$solicitud->id}/checklist")->assertOk();
 
+        // Con la consulta a SICOM encendida, un chip que SICOM no conoce no pasa en una revisión
+        \App\Models\SystemSetting::put('sicom_consulta_evaluacion', true);
+        \Illuminate\Support\Facades\Http::fake(['www.datos.gov.co/*' => \Illuminate\Support\Facades\Http::response([])]);
+
         // Con un chip inválido y sin fotos: se guarda lo demás y se avisa
         $r = $this->postJson("/campo/sincronizar/{$solicitud->id}", [...$base, 'chip_codigo' => 'NO-EXISTE'])->assertOk();
-        $this->assertStringContainsString('no está registrado', implode(' ', $r->json('avisos')));
+        $this->assertStringContainsString('no existe en el SICOM', implode(' ', $r->json('avisos')));
     }
 
     public function test_no_se_sincroniza_una_solicitud_que_ya_no_esta_pendiente(): void

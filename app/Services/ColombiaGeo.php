@@ -29,6 +29,20 @@ class ColombiaGeo
         return collect(self::datos())->mapWithKeys(fn ($d) => [$d['nombre'] => $d['nombre']])->all();
     }
 
+    /**
+     * Todos los municipios del país en una sola lista, para buscarlos sin elegir antes el departamento.
+     *
+     * @return array<string, string> «Municipio, Departamento» => «Municipio, Departamento»
+     */
+    public static function municipios(): array
+    {
+        return collect(self::datos())
+            ->flatMap(fn ($d) => collect($d['ciudades'])->map(fn ($ciudad) => "{$ciudad}, {$d['nombre']}"))
+            ->sort()
+            ->mapWithKeys(fn ($municipio) => [$municipio => $municipio])
+            ->all();
+    }
+
     /** @return array<string, string> nombre => nombre */
     public static function ciudades(?string $departamento): array
     {

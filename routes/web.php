@@ -26,6 +26,17 @@ Route::get('/solicitud/{solicitud}/certificado', CertificadoController::class)
     ->middleware('auth')
     ->name('solicitud.certificado');
 
+// Verificación pública del certificado: a esta página lleva el QR del PDF. No pide sesión, muestra
+// solo datos del certificado (nada del propietario) y exige la firma que viaja en el enlace.
+Route::get('/verificar/{codigo}', function (Request $request, string $codigo) {
+    $valida = hash_equals(App\Models\Solicitud::firmaVerificacion($codigo), (string) $request->query('f'));
+    $solicitud = $valida
+        ? App\Models\Solicitud::where('codigo', $codigo)->with(['user:id,name', 'serviceType', 'vehicle'])->first()
+        : null;
+
+    return response()->view('verificar', ['solicitud' => $solicitud], $solicitud ? 200 : 404);
+})->middleware('throttle:30,1')->name('certificado.verificar');
+
 // Inspección sin conexión del evaluador (ver CampoController)
 Route::middleware(['auth', 'restrict.access'])->prefix('campo')->name('campo.')->group(function () {
     Route::get('/', [CampoController::class, 'index'])->name('index');

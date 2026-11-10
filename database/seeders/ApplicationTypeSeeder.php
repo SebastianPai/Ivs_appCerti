@@ -9,7 +9,7 @@ class ApplicationTypeSeeder extends Seeder
 {
     public function run(): void
     {
-        $items = ['Taxis', 'Particular', 'Carga liviana', 'Carga pesada'];
+        $items = ['TRANSFORMADO DEDICADO', 'BICOMBUSTIBLE', 'DUAL'];
 
         foreach ($items as $item) {
             ApplicationType::firstOrCreate(['nombre' => $item]);

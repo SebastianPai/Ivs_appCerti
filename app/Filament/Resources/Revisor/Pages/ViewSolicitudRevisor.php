@@ -31,6 +31,12 @@ class ViewSolicitudRevisor extends ViewRecord
             && Auth::user()->hasAnyRole(['revisor', 'admin']);
     }
 
+    /** Ya tiene certificado (lo emitió el evaluador) y falta la revisión. */
+    private function puedeRevisar(): bool
+    {
+        return $this->record->estaAprobada() && $this->record->revisada_en === null
+            && Auth::user()->hasAnyRole(['revisor', 'admin']);
+    }
     protected function getHeaderActions(): array
     {
         return [
@@ -40,13 +46,54 @@ class ViewSolicitudRevisor extends ViewRecord
                 ->color('gray')
                 ->url(fn () => route('solicitud.certificado', $this->record))
                 ->openUrlInNewTab()
-                ->visible(fn () => $this->record->estaAprobada()),
+                ->visible(fn () => $this->record->tieneCertificado()),
+
+            Action::make('revisar')
+                ->label(fn () => $this->record->serviceType?->esCambioDeChip() ? 'Aceptar revisión' : 'Marcar como revisada')
+                ->color('success')
+                ->icon('heroicon-o-check')
+                ->visible(fn () => $this->puedeRevisar())
+                ->modalHeading(fn () => "¿Está seguro de revisar la solicitud {$this->record->id}?")
+                // Tras un reenvío, la observación anterior viene escrita, como en la plataforma anterior
+                ->fillForm(fn () => ['observaciones_revisor' => $this->record->observaciones_revisor])
+                ->modalSubmitActionLabel('Ok')
+                ->schema([
+                    Textarea::make('observaciones_revisor')
+                        ->label('Observaciones del revisor')
+                        // Opcional, como en la plataforma anterior (la devolución sí exige el motivo)
+                        ->maxLength(500)
+                        ->rows(3),
+                ])
+                ->action(function (array $data) {
+                    $this->record->update([
+                        'revisada_en' => now(),
+                        'revisor_id' => Auth::id(),
+                        'observaciones_revisor' => $data['observaciones_revisor'] ?? null,
+                    ]);
+
+                    Notification::make()->title('Solicitud revisada')->success()->send();
+
+                    $this->redirect($this->getResource()::getUrl('index'));
+                }),
+
+            Action::make('marcarNoRevisada')
+                ->label('Marcar como no revisada')
+                ->color('gray')
+                ->icon('heroicon-o-arrow-uturn-down')
+                ->visible(fn () => $this->record->estaAprobada() && $this->record->revisada_en !== null
+                    && Solicitud::certificaAlEvaluar() && Auth::user()->hasAnyRole(['revisor', 'admin']))
+                ->requiresConfirmation()
+                ->action(function () {
+                    $this->record->update(['revisada_en' => null]);
+
+                    Notification::make()->title('La solicitud vuelve a «Pendiente Revisar»')->success()->send();
+                }),
 
             Action::make('devolver')
                 ->label('Devolver al evaluador')
                 ->color('danger')
                 ->icon('heroicon-o-arrow-uturn-left')
-                ->visible(fn () => $this->puedeDecidir())
+                ->visible(fn () => $this->puedeDecidir() || $this->puedeRevisar())
                 ->modalHeading('Devolver al evaluador')
                 ->modalDescription('Describa qué debe corregir el evaluador. Le llegará por correo.')
                 ->schema([
@@ -62,6 +109,7 @@ class ViewSolicitudRevisor extends ViewRecord
                         'estado' => EstadoSolicitud::CorreccionTecnica->value,
                         'observaciones_revisor' => $data['observaciones_revisor'],
                         'revisor_id' => Auth::id(),
+                        'revisada_en' => null,
                     ]);
 
                     $evaluador = $this->record->verificacion?->evaluador;
@@ -98,31 +146,14 @@ class ViewSolicitudRevisor extends ViewRecord
                 })
                 ->modalSubmitActionLabel('Aprobar')
                 ->action(function () {
-                    DB::transaction(function () {
-                        $this->record->update([
-                            'estado' => EstadoSolicitud::Aprobada->value,
-                            'codigo' => $this->record->codigo ?? Solicitud::generarCodigo($this->record),
-                            'revisor_id' => Auth::id(),
-                            'fecha_aprobacion' => now(),
-                            'vence_el' => Solicitud::calcularVencimiento(now())->toDateString(),
-                            'aviso_vencimiento_at' => null,
-                        ]);
+                    $this->record->emitirCertificado(Auth::id());
 
-                        $this->record->verificacion?->update(['estado' => 'aprobada']);
-                    });
+                    if (! $this->record->tieneCertificado()) {
+                        Notification::make()->title('Cambio de chip aprobado')->success()->send();
+                        $this->redirect(SolicitudRevisorResource::getUrl('index'));
 
-                    $taller = $this->record->user;
-                    $placa = $this->record->placa();
-
-                    Correo::enviar($taller, 'aprobacion', "🎉 Certificado aprobado - Placa: {$placa}", 'emails.notificacion', [
-                        'titulo' => 'Certificación aprobada',
-                        'saludo' => $taller?->name,
-                        'cuerpo' => 'La solicitud fue aprobada y el certificado ya está disponible para descarga.',
-                        'placa' => $placa,
-                        'detalle' => 'Certificado N.º '.$this->record->codigo.' · vigente hasta el '.$this->record->vence_el?->format('d/m/Y'),
-                        'boton_texto' => 'Ver solicitud',
-                        'boton_url' => TallerSolicitudResource::getUrl('view', ['record' => $this->record]),
-                    ]);
+                        return;
+                    }
 
                     Notification::make()
                         ->title('Certificación aprobada')

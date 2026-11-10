@@ -28,6 +28,12 @@ class VehicleBrand extends Model
 {
     protected $fillable = ['nombre', 'activo'];
 
+    protected static function booted(): void
+    {
+        static::saved(fn () => Cache::forget('vehicle_brands'));
+        static::deleted(fn () => Cache::forget('vehicle_brands'));
+    }
+
     public function models()
     {
         return $this->hasMany(VehicleModel::class, 'brand_id');

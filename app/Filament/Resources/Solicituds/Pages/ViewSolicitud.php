@@ -32,7 +32,7 @@ class ViewSolicitud extends ViewRecord
                 ->color('success')
                 ->url(fn () => route('solicitud.certificado', $this->record))
                 ->openUrlInNewTab()
-                ->visible(fn () => $this->record->estaAprobada()),
+                ->visible(fn () => $this->record->tieneCertificado()),
 
             EditAction::make()
                 ->label(fn () => $this->record->estado === 'devuelta_taller' ? 'Corregir solicitud' : 'Editar'),

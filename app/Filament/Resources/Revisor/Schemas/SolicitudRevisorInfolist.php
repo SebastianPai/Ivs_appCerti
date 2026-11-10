@@ -39,7 +39,6 @@ class SolicitudRevisorInfolist
                                 TextEntry::make('vehicle.model.nombre')->label('Línea')->placeholder('—'),
                                 TextEntry::make('vehicle.year')->label('Año')->placeholder('—'),
                                 TextEntry::make('vehicle.type.nombre')->label('Clase')->placeholder('—'),
-                                TextEntry::make('vehicle.motor')->label('Motor')->placeholder('—'),
                                 TextEntry::make('vehicle.fuel_base')->label('Combustible original')->placeholder('—'),
                                 TextEntry::make('serviceType.nombre')->label('Servicio')->placeholder('—'),
                                 TextEntry::make('combustionSystem.nombre')->label('Sistema')->placeholder('—'),

@@ -178,7 +178,7 @@
             const datos = await r.json();
             csrf = datos.csrf;
 
-            def = { secciones: datos.secciones, ubicaciones: datos.ubicaciones, fotos_obligatorias: datos.fotos_obligatorias, chip_obligatorio: datos.chip_obligatorio };
+            def = { secciones: datos.secciones, ubicaciones: datos.ubicaciones, reglas: datos.reglas, fotos_obligatorias: datos.fotos_obligatorias, chip_obligatorio: datos.chip_obligatorio };
             await db.put('kv', def, 'definicion');
             await db.put('kv', datos.generado, 'ultima_descarga');
 
@@ -194,7 +194,7 @@
                     await db.put('trabajos', t);
                 } else {
                     // Nueva (o ya sincronizada antes): se parte de lo que hay en el servidor
-                    await db.put('trabajos', {
+                    const nuevo = {
                         id: s.id,
                         solicitud: s,
                         declaracion: s.guardado.declaracion,
@@ -205,7 +205,9 @@
                         fotos: [],
                         estado: 'borrador',
                         cambios: false,
-                    });
+                    };
+                    if (s.dedicado) def.reglas.dedicado_items.forEach((id) => { nuevo.checklist[id] ??= 'na'; });
+                    await db.put('trabajos', nuevo);
                 }
             }
 
@@ -233,16 +235,12 @@
         // ------------------------------------------------------------------
         function progreso(t) {
             const items = def ? def.secciones.flatMap((s) => s.items) : [];
-            const cil = t.solicitud.cilindros || [];
-            const vc = t.checklist.verificacion_cilindros || [];
-            const cilOk = cil.filter((serie) => {
-                const c = vc.find((x) => x.numero_serie === serie);
-                return c && c.ultra_liviano && (c.ubicacion || []).length;
-            }).length;
-            const respondidos = items.filter((i) => ['c', 'nc', 'na'].includes(t.checklist[i.id])).length + cilOk;
-            const total = items.length + cil.length;
+            // Ultraliviano y ubicación del cilindro: dos preguntas por solicitud
+            const previas = (t.checklist.ultra_liviano ? 1 : 0) + ((t.checklist.ubicacion_cilindro || []).length ? 1 : 0);
+            const respondidos = items.filter((i) => ['c', 'nc', 'na'].includes(t.checklist[i.id])).length + previas;
+            const total = items.length + 2;
             const tieneFoto = (n) => t.fotos.some((f) => f.nombre === n) || (t.solicitud.guardado.fotos || []).includes(n);
-            const obligatorias = def ? def.fotos_obligatorias : [];
+            const obligatorias = def && t.solicitud.fotos_requeridas !== false ? def.fotos_obligatorias : [];
 
             return {
                 filtro: !! t.declaracion && !! t.gps,
@@ -340,22 +338,19 @@
             const fotos = (def?.fotos_obligatorias || []).map((n) => fotoHtml(t, n, true, dis)).join('')
                 + t.fotos.filter((f) => ! (def?.fotos_obligatorias || []).includes(f.nombre)).map((f) => fotoHtml(t, f.nombre, false, dis)).join('');
 
-            const cilindros = (s.cilindros || []).map((serie) => {
-                const c = (t.checklist.verificacion_cilindros || []).find((x) => x.numero_serie === serie) || {};
-                return `
+            const cilindros = `
                     <div class="item">
-                        <strong>Cilindro serie ${h(serie)}</strong>
-                        <div class="muted small" style="margin-top:6px">¿Es ultraliviano?</div>
+                        ${(s.cilindros || []).length ? `<div class="muted small">Seriales: ${(s.cilindros || []).map(h).join(', ')}</div>` : ''}
+                        <div class="muted small" style="margin-top:6px">El cilindro es ultraliviano</div>
                         <div class="seg dos">
-                            ${['si', 'no'].map((v) => `<button type="button" ${dis} data-cil="${h(serie)}" data-campo="ultra_liviano" data-v="${v}" aria-pressed="${c.ultra_liviano === v}">${v === 'si' ? 'Sí' : 'No'}</button>`).join('')}
+                            ${['no', 'si'].map((v) => `<button type="button" ${dis} data-campo="ultra_liviano" data-v="${v}" aria-pressed="${t.checklist.ultra_liviano === v}">${v === 'si' ? 'Sí' : 'No'}</button>`).join('')}
                         </div>
-                        <div class="muted small" style="margin-top:8px">Ubicación</div>
+                        <div class="muted small" style="margin-top:8px">Ubicación del cilindro (puede marcar varias)</div>
                         <div class="ubicaciones">
                             ${Object.entries(def?.ubicaciones || {}).map(([k, txt]) => `
-                                <label class="check small"><input type="checkbox" ${dis} data-cil="${h(serie)}" data-ubic="${k}" ${(c.ubicacion || []).includes(k) ? 'checked' : ''}> ${h(txt)}</label>`).join('')}
+                                <label class="check small"><input type="checkbox" ${dis} data-ubic="${k}" ${(t.checklist.ubicacion_cilindro || []).includes(k) ? 'checked' : ''}> ${h(txt)}</label>`).join('')}
                         </div>
                     </div>`;
-            }).join('');
 
             const secciones = (def?.secciones || []).map((sec) => `
                 <div class="card">
@@ -387,6 +382,9 @@
                     <h3>2. Chip</h3>
                     <input type="text" id="chip" ${dis} value="${h(t.chip)}" placeholder="Acerque el chip o digite el código" autocomplete="off" autocapitalize="characters" style="text-transform:uppercase">
                     ${'NDEFReader' in window ? `<div class="row" style="margin-top:8px"><button type="button" class="grow" data-accion="nfc" ${dis}>📶 Leer con NFC</button></div>` : ''}
+                    ${'bluetooth' in navigator ? `<div class="row" style="margin-top:8px">${lectorBle
+                        ? `<button type="button" class="grow" data-accion="ble" data-orden="2" ${dis}>🔑 Leer iButton</button><button type="button" class="grow" data-accion="ble" data-orden="3" ${dis}>📶 Leer NFC con el lector</button>`
+                        : `<button type="button" class="grow" data-accion="ble-conectar" ${dis}>🔗 Conectar lector Bluetooth</button>`}</div>` : ''}
                     <p class="muted small" style="margin:8px 0 0">${def?.chip_obligatorio ? 'Obligatorio.' : 'Opcional según la configuración.'} El código se valida al sincronizar.</p>
                 </div>
 
@@ -396,7 +394,7 @@
                     <div class="row" style="margin-top:10px"><button type="button" class="grow" data-accion="foto-extra" ${dis}>＋ Foto adicional</button></div>
                 </div>
 
-                ${cilindros ? `<div class="card"><h3>4. Cilindros</h3>${cilindros}</div>` : ''}
+                <div class="card"><h3>4. Cilindros</h3>${cilindros}</div>
                 ${secciones}
 
                 <div class="card">
@@ -423,6 +421,7 @@
             const v = t.checklist[i.id];
             const valor = t.checklist[i.id + '_valor'];
             const bajo = i.minimo != null && valor !== undefined && valor !== '' && Number(valor) < i.minimo;
+            const alto = i.maximo != null && valor !== undefined && valor !== '' && Number(valor) > i.maximo;
             return `
                 <div class="item">
                     <div><span class="numeral">${h(i.numeral)}</span> ${h(i.texto)}</div>
@@ -430,8 +429,9 @@
                         ${[['c', 'Cumple'], ['nc', 'No cumple'], ['na', 'N/A']].map(([k, txt]) => `<button type="button" ${dis} data-item="${i.id}" data-v="${k}" aria-pressed="${v === k}">${txt}</button>`).join('')}
                     </div>
                     ${i.medicion && v === 'c' ? `
-                        <div class="medicion"><input type="number" inputmode="decimal" min="0" step="0.1" ${dis} data-valor="${i.id}" value="${h(valor ?? '')}" placeholder="${i.minimo ? 'Mínimo ' + i.minimo : 'Medición'}"> <span class="muted">cm</span></div>
-                        ${bajo ? `<div class="error">${h(valor)} cm es menor al mínimo de ${i.minimo} cm. Si no cumple, márquelo como «No cumple».</div>` : ''}` : ''}
+                        <div class="medicion"><input type="number" inputmode="decimal" min="0" step="0.1" ${dis} data-valor="${i.id}" value="${h(valor ?? '')}" placeholder="${i.minimo ? 'Mínimo ' + i.minimo : i.maximo ? 'Máximo ' + i.maximo : 'Medición'}"> <span class="muted">cm</span></div>
+                        ${bajo ? `<div class="error">${h(valor)} cm es menor al mínimo de ${i.minimo} cm. Si no cumple, márquelo como «No cumple».</div>` : ''}
+                        ${alto ? `<div class="error">${h(valor)} cm supera el máximo de ${i.maximo} cm. Si no cumple, márquelo como «No cumple».</div>` : ''}` : ''}
                 </div>`;
         }
 
@@ -484,14 +484,25 @@
             }
         }
 
-        function cilindro(t, serie) {
-            t.checklist.verificacion_cilindros ??= [];
-            let c = t.checklist.verificacion_cilindros.find((x) => x.numero_serie === serie);
-            if (! c) {
-                c = { numero_serie: serie, ultra_liviano: null, ubicacion: [] };
-                t.checklist.verificacion_cilindros.push(c);
+        /**
+         * Respuestas que dependen de la ubicación y el tipo de los cilindros (mismas reglas que
+         * ChecklistTecnico::reglasDinamicas). El evaluador las puede cambiar después.
+         */
+        function aplicarReglas(t) {
+            const r = def?.reglas;
+            if (! r) return;
+            const orden = Object.keys(def.ubicaciones);
+            const marcadas = [...new Set((t.checklist.ubicacion_cilindro || []).map((u) => orden.indexOf(u) + 1).filter(Boolean))].sort().join('+');
+            const fila = r.ubicacion[marcadas];
+            if (fila) {
+                r.ubicacion_items.forEach((id, i) => {
+                    if (fila[i] === '-') delete t.checklist[id];
+                    else t.checklist[id] = fila[i] === 'c' ? 'c' : 'na';
+                });
             }
-            return c;
+            const ultra = t.checklist.ultra_liviano;
+            if (ultra) r.ultraliviano_items.forEach((id) => { t.checklist[id] = ultra === 'si' ? 'c' : 'na'; });
+            if (t.solicitud.dedicado) r.dedicado_items.forEach((id) => { t.checklist[id] = 'na'; });
         }
 
         /** Reduce la foto (máx. 1920 px, JPEG) para ahorrar espacio y datos. */
@@ -556,6 +567,46 @@
                 };
             } catch (e) {
                 avisar('bad', e.name === 'NotAllowedError' ? 'Permiso de NFC denegado.' : 'No fue posible iniciar el NFC: ' + h(e.message));
+            }
+        }
+
+        // Lector Bluetooth de la plataforma anterior: se le escribe «2» (iButton) o «3» (NFC) y
+        // responde con el IDROM de 16 caracteres; si devuelve la misma orden, no pudo leer.
+        const BLE_SERVICIO = '4fafc201-1fb5-459e-8fcc-c5c9c331914b';
+        const BLE_CARACTERISTICA = 'beb5483e-36e1-4688-b7f5-ea07361b26a8';
+        let lectorBle = null;
+
+        async function conectarBle() {
+            try {
+                const dispositivo = await navigator.bluetooth.requestDevice({ acceptAllDevices: true, optionalServices: [BLE_SERVICIO] });
+                dispositivo.addEventListener('gattserverdisconnected', () => { lectorBle = null; pintar(); });
+                const gatt = await dispositivo.gatt.connect();
+                lectorBle = await (await gatt.getPrimaryService(BLE_SERVICIO)).getCharacteristic(BLE_CARACTERISTICA);
+                avisar('ok', 'Conectado a: ' + h(dispositivo.name || 'lector'));
+            } catch (e) {
+                if (e.name !== 'NotFoundError') avisar('bad', 'No se pudo conectar el lector: ' + h(e.message));
+            }
+        }
+
+        async function leerBle(id, orden) {
+            try {
+                await lectorBle.writeValue(new TextEncoder().encode(orden));
+                // El lector tarda en responder: mientras devuelva la orden, se vuelve a leer
+                let texto = '';
+                for (let intento = 0; intento < 6; intento++) {
+                    texto = new TextDecoder().decode(await lectorBle.readValue()).trim();
+                    if (/^[0-9A-Za-z]{16}$/.test(texto)) break;
+                    await new Promise((listo) => setTimeout(listo, 400));
+                }
+                if (! /^[0-9A-Za-z]{16}$/.test(texto)) {
+                    return avisar('bad', 'No se pudo leer el chip. Acérquelo de nuevo; si el problema continúa, es posible que el chip no funcione.');
+                }
+                if (navigator.vibrate) navigator.vibrate(150);
+                mensaje = { tipo: 'ok', html: 'Chip leído: ' + h(texto.toUpperCase()) };
+                modificar(id, (t) => { t.chip = texto.toUpperCase(); });
+            } catch (e) {
+                lectorBle = null;
+                avisar('bad', 'Se perdió la conexión con el lector. Conéctelo de nuevo.');
             }
         }
 
@@ -699,9 +750,9 @@
                 });
             }
 
-            const cil = e.target.closest('[data-cil][data-campo]');
+            const cil = e.target.closest('[data-campo=ultra_liviano]');
             if (cil && vista.id) {
-                return modificar(vista.id, (t) => { cilindro(t, cil.dataset.cil).ultra_liviano = cil.dataset.v; });
+                return modificar(vista.id, (t) => { t.checklist.ultra_liviano = cil.dataset.v; aplicarReglas(t); });
             }
 
             const btn = e.target.closest('[data-accion]');
@@ -734,6 +785,12 @@
 
                 case 'nfc':
                     return leerNfc(vista.id);
+
+                case 'ble-conectar':
+                    return conectarBle();
+
+                case 'ble':
+                    return leerBle(vista.id, btn.dataset.orden);
 
                 case 'foto-extra': {
                     const nombre = (prompt('Descripción de la foto adicional') || '').trim().slice(0, 120);
@@ -780,8 +837,9 @@
             }
             if (el.dataset.ubic) {
                 return modificar(vista.id, (t) => {
-                    const c = cilindro(t, el.dataset.cil);
-                    c.ubicacion = el.checked ? [...new Set([...c.ubicacion, el.dataset.ubic])] : c.ubicacion.filter((u) => u !== el.dataset.ubic);
+                    const marcadas = t.checklist.ubicacion_cilindro || [];
+                    t.checklist.ubicacion_cilindro = el.checked ? [...new Set([...marcadas, el.dataset.ubic])] : marcadas.filter((u) => u !== el.dataset.ubic);
+                    aplicarReglas(t);
                 });
             }
             if (el.dataset.foto && el.files?.[0]) {

@@ -24,9 +24,11 @@ class ServiceTypeResource extends Resource
 
     protected static ?string $recordTitleAttribute = 'nombre';
 
-    protected static ?string $navigationLabel = 'Tipos de servicio';
+    protected static ?string $navigationLabel = 'Editar Tipos Servicio';
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Administración';
+    protected static string|\UnitEnum|null $navigationGroup = 'Administrador';
+
+    protected static ?int $navigationSort = 3;
 
     /** Solo administradores (sin esto cualquier usuario logueado podía entrar por URL). */
     public static function canViewAny(): bool

@@ -41,17 +41,17 @@ class UserInfolist
 
             Section::make('Taller')
                 ->columnSpanFull()
-                ->visible(fn (User $record) => (bool) $record->is_taller)
+                ->visible(fn (User $record) => $record->esTaller())
                 ->schema([
                     Grid::make(['default' => 1, 'md' => 3])->schema([
                         TextEntry::make('camara_comercio')
-                            ->label('Cámara de comercio')
+                            ->label('Registro Industria y Comercio')
                             ->formatStateUsing(fn ($state) => $state ? 'Ver documento' : null)
                             ->placeholder('No cargada')
                             ->url(fn (User $record) => $record->camara_comercio ? route('usuarios.camara', $record) : null, shouldOpenInNewTab: true)
                             ->color('primary'),
                         TextEntry::make('fecha_radicado')->label('Radicado')->date('d/m/Y')->placeholder('—'),
-                        TextEntry::make('fecha_vencimiento')->label('Vence')->date('d/m/Y')->placeholder('—')
+                        TextEntry::make('fecha_vencimiento')->label('Fecha vencimiento registro')->date('d/m/Y')->placeholder('—')
                             ->color(fn ($state) => $state && $state->isPast() ? 'danger' : 'success'),
                     ]),
                 ]),

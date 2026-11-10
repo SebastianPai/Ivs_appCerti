@@ -27,5 +27,6 @@ class RegulatorBrand extends Model
 
     protected $fillable = [
         'nombre',
+        'codigo_sicom',
     ];
 }

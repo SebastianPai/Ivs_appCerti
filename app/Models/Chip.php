@@ -48,6 +48,11 @@ class Chip extends Model
         'activo' => 'boolean',
     ];
 
+    public function setCodigoAttribute(?string $valor): void
+    {
+        $this->attributes['codigo'] = $valor === null ? null : strtoupper(trim($valor));
+    }
+
     public function verificaciones(): HasMany
     {
         return $this->hasMany(SolicitudVerificacion::class, 'id_chip');
