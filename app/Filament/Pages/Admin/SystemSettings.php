@@ -63,6 +63,8 @@ class SystemSettings extends Page
             'registro_taller_required' => SystemSetting::enabled('registro_taller_required'),
             'servicios_por_taller' => SystemSetting::enabled('servicios_por_taller'),
             'restrict_pc_access' => SystemSetting::enabled('restrict_pc_access'),
+            'restriccion_horario_inspector' => SystemSetting::enabled('restriccion_horario_inspector'),
+            ...\App\Support\HorarioEvaluador::horario(),
             'correos' => SystemSetting::enabledOr('correos', true),
             'correos_tipos' => array_values(array_diff(array_keys(Correo::TIPOS), $desactivados)),
             'vigencia_meses' => $vigencia['meses'],
@@ -254,6 +256,28 @@ class SystemSettings extends Page
                             ->visible(fn (Get $get) => (bool) $get('restrict_pc_access'))
                             ->schema($porRol),
                     ]),
+
+                // Como «Restringir acceso inspector» de la plataforma anterior. Allá las horas venían
+                // fijas en el servidor; aquí se eligen.
+                Section::make('Horario del evaluador')
+                    ->icon('heroicon-o-clock')
+                    ->schema([
+                        Toggle::make('restriccion_horario_inspector')
+                            ->label('Restringir acceso inspector')
+                            ->helperText('Fuera del horario, el evaluador no puede abrir solicitudes desde Solicitudes Abiertas. El resto del menú sigue disponible.')
+                            ->live(),
+                        Grid::make(['default' => 1, 'md' => 3])
+                            ->visible(fn (Get $get) => (bool) $get('restriccion_horario_inspector'))
+                            ->schema([
+                                \Filament\Forms\Components\TimePicker::make('horario_desde')->label('Desde')->seconds(false)->required(),
+                                \Filament\Forms\Components\TimePicker::make('horario_hasta')->label('Hasta')->seconds(false)->required()->after('horario_desde'),
+                                CheckboxList::make('horario_dias')
+                                    ->label('Días')
+                                    ->options(\App\Support\HorarioEvaluador::DIAS)
+                                    ->columns(4)
+                                    ->required(),
+                            ]),
+                    ]),
             ])
             ->statePath('data');
     }
@@ -281,6 +305,14 @@ class SystemSettings extends Page
         }
 
         SystemSetting::put('restrict_pc_access', (bool) $data['restrict_pc_access'], ['roles' => $roles]);
+
+        // Con el interruptor apagado los campos no llegan: se conserva el horario que había
+        $horario = \App\Support\HorarioEvaluador::horario();
+        SystemSetting::put('restriccion_horario_inspector', (bool) $data['restriccion_horario_inspector'], [
+            'desde' => substr($data['horario_desde'] ?? $horario['horario_desde'], 0, 5),
+            'hasta' => substr($data['horario_hasta'] ?? $horario['horario_hasta'], 0, 5),
+            'dias' => array_values(array_map('intval', $data['horario_dias'] ?? $horario['horario_dias'])),
+        ]);
 
         // Las listas ocultas (interruptor apagado) no llegan en $data: se conserva lo que había
         SystemSetting::put('correos', (bool) $data['correos'], [

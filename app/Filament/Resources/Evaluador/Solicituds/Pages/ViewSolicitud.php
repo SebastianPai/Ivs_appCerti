@@ -70,6 +70,12 @@ class ViewSolicitud extends Page implements HasForms
         $this->record = $this->resolveRecord($record)
             ->load(['user', 'vehicle.brand', 'vehicle.model', 'vehicle.type', 'serviceType', 'combustionSystem', 'applicationType', 'technology', 'adjuntos', 'regulators.brand', 'cilindros.brand']);
 
+        if (! $this->soloLectura() && SolicitudResource::bloqueadaPorHorario()) {
+            $this->redirect(SolicitudResource::getUrl('index'));
+
+            return;
+        }
+
         // No se puede saltar el filtro de seguridad escribiendo la URL
         if (! $this->soloLectura() && ! SolicitudResource::filtroCompleto($this->record)) {
             $this->redirect(SolicitudResource::getUrl('verificacion', ['record' => $this->record]));

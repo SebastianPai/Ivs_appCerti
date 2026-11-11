@@ -62,6 +62,12 @@ class EvaluacionChecklist extends Page implements HasForms
     {
         $this->record = $this->resolveRecord($record)->load('cilindros');
 
+        if (SolicitudResource::bloqueadaPorHorario()) {
+            $this->redirect(SolicitudResource::getUrl('index'));
+
+            return;
+        }
+
         if (! $this->record->esEvaluable()) {
             Notification::make()->title('Esta solicitud no está pendiente de evaluación')->warning()->send();
             $this->redirect(SolicitudResource::getUrl('index'));

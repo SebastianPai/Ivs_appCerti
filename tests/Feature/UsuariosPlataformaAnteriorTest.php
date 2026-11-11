@@ -101,6 +101,34 @@ class UsuariosPlataformaAnteriorTest extends TestCase
         $this->withSession(['password_hash_web' => $user->password])->get('/ivs')->assertOk();
     }
 
+    public function test_fuera_del_horario_el_evaluador_no_abre_solicitudes(): void
+    {
+        $taller = $this->usuario('cliente');
+        $evaluador = $this->usuario('evaluador');
+        $evaluador->clientesAsignados()->attach($taller);
+        $solicitud = $this->solicitud($taller);
+        $verificacion = \App\Filament\Resources\Evaluador\Solicituds\Pages\VerificacionPrevia::class;
+        $this->actingAs($evaluador);
+
+        // Lunes a viernes de 8 a 17
+        \App\Models\SystemSetting::put('restriccion_horario_inspector', true, ['desde' => '08:00', 'hasta' => '17:00', 'dias' => [1, 2, 3, 4, 5]]);
+
+        $this->travelTo(\Illuminate\Support\Carbon::parse('2026-11-09 10:00')); // lunes
+        Livewire::test($verificacion, ['record' => $solicitud->id])->assertNoRedirect();
+
+        $this->travelTo(\Illuminate\Support\Carbon::parse('2026-11-09 18:30')); // lunes, tarde
+        Livewire::test($verificacion, ['record' => $solicitud->id])
+            ->assertRedirect()
+            ->assertNotified('Fuera de horario');
+
+        $this->travelTo(\Illuminate\Support\Carbon::parse('2026-11-08 10:00')); // domingo
+        $this->assertTrue(\App\Support\HorarioEvaluador::fueraDeHorario($evaluador));
+
+        // Apagado (como hoy en la plataforma anterior), entra a cualquier hora
+        \App\Models\SystemSetting::put('restriccion_horario_inspector', false, ['desde' => '08:00', 'hasta' => '17:00', 'dias' => [1]]);
+        Livewire::test($verificacion, ['record' => $solicitud->id])->assertNoRedirect();
+    }
+
     public function test_inventario_y_talleres_desde_la_fila_del_usuario(): void
     {
         $admin = $this->usuario('admin');
