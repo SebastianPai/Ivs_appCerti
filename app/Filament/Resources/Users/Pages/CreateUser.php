@@ -47,6 +47,14 @@ class CreateUser extends CreateRecord
                             'tableActionRecord' => $user->getKey(),
                         ]))
                         ->close(),
+                    \Filament\Actions\Action::make('asignarFecha')
+                        ->label('Fecha del registro')
+                        ->icon('heroicon-o-calendar-days')
+                        ->color('gray')
+                        ->button()
+                        ->visible(\App\Models\SystemSetting::enabled('registro_taller_required'))
+                        ->url(UserResource::getUrl('edit', ['record' => $user]))
+                        ->close(),
                 ])
                 ->send();
         }

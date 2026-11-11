@@ -216,9 +216,23 @@ class SolicitudForm
                     ->validationMessages(['in' => 'Este taller no tiene asignado ese tipo de servicio.'])
                     ->helperText(fn (Get $get, ?Solicitud $record) => self::serviciosDe($get, $record) === []
                         ? (Auth::user()?->hasRole('admin')
-                            ? 'Elija el taller. Si ya lo eligió, no tiene servicios asignados: asígnelos en Administrar Usuarios › «Asignación de servicios».'
+                            ? 'Elija el taller. Si ya lo eligió, no tiene servicios asignados: asígnelos con el botón «Asignar servicios».'
                             : 'No tienes permisos a servicios, debes solicitarlos al administrador.')
                         : null)
+                    // Atajo del admin: abre en otra pestaña la asignación de servicios del taller elegido,
+                    // para no perder lo que ya digitó en la solicitud
+                    ->hintAction(
+                        \Filament\Actions\Action::make('asignarServiciosTaller')
+                            ->label('Asignar servicios')
+                            ->icon('heroicon-o-wrench-screwdriver')
+                            ->visible(fn (Get $get, ?Solicitud $record) => Auth::user()?->hasRole('admin')
+                                && filled($get('user_id'))
+                                && self::serviciosDe($get, $record) === [])
+                            ->url(fn (Get $get) => \App\Filament\Resources\Users\UserResource::getUrl('index', [
+                                'tableAction' => 'asignarServicios',
+                                'tableActionRecord' => $get('user_id'),
+                            ]), shouldOpenInNewTab: true)
+                    )
                     ->required(),
 
                 Select::make('combustion_system_id')

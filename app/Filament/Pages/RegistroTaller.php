@@ -74,6 +74,13 @@ class RegistroTaller extends Page
             ->title('Registro de Industria y Comercio por revisar')
             ->body("{$user->name} cargó su registro. Asígnele la fecha de expedición para que pueda entrar.")
             ->warning()
+            ->actions([
+                // Lleva al usuario, donde están el documento y la fecha de expedición
+                \Filament\Actions\Action::make('asignarFecha')
+                    ->label('Asignar fecha')
+                    ->url(\App\Filament\Resources\Users\UserResource::getUrl('edit', ['record' => $user]))
+                    ->markAsRead(),
+            ])
             ->sendToDatabase(User::role('admin')->get());
 
         $this->form->fill();
