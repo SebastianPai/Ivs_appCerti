@@ -33,9 +33,21 @@ class CreateUser extends CreateRecord
         if ($data['role'] === 'cliente' && \App\Models\SystemSetting::enabled('servicios_por_taller')) {
             \Filament\Notifications\Notification::make()
                 ->title('Falta asignarle los servicios')
-                ->body("{$user->name} no podrá crear solicitudes hasta que le asigne los servicios (menú de la fila › «Asignación de servicios») y, si es taller, la fecha del registro de Industria y Comercio.")
+                ->body("{$user->name} no podrá crear solicitudes hasta que le asigne los servicios y, si es taller, la fecha del registro de Industria y Comercio.")
                 ->warning()
                 ->persistent()
+                ->actions([
+                    // Abre la lista de usuarios con la ventana «Asignación de servicios» de este usuario ya abierta
+                    \Filament\Actions\Action::make('asignarServicios')
+                        ->label('Asignar servicios')
+                        ->icon('heroicon-o-wrench-screwdriver')
+                        ->button()
+                        ->url(UserResource::getUrl('index', [
+                            'tableAction' => 'asignarServicios',
+                            'tableActionRecord' => $user->getKey(),
+                        ]))
+                        ->close(),
+                ])
                 ->send();
         }
 
