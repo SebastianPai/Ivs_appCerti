@@ -129,6 +129,7 @@ class AdminPanelProvider extends PanelProvider
             ->authMiddleware([
                 Authenticate::class,
                 'restrict.access',
+                \App\Http\Middleware\ExigirCambioPassword::class,
                 ExigirRegistroTaller::class,
             ])
             ->plugins([

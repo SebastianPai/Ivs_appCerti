@@ -102,6 +102,7 @@ class User extends Authenticatable implements FilamentUser, HasAppAuthentication
         'password',
         'department',
         'city',
+        'direccion',
         'is_taller',
         'nit',
         'camara_comercio', 
@@ -135,6 +136,7 @@ class User extends Authenticatable implements FilamentUser, HasAppAuthentication
             'fecha_radicado' => 'date',
             'fecha_vencimiento' => 'date',
             'activo' => 'boolean',
+            'debe_cambiar_password' => 'boolean',
             'app_authentication_secret' => 'encrypted',
             'app_authentication_recovery_codes' => 'encrypted:array',
         ];
@@ -273,6 +275,20 @@ class User extends Authenticatable implements FilamentUser, HasAppAuthentication
             'cliente_id',
             'evaluador_id'
         )->withTimestamps();
+    }
+
+    public function inventario()
+    {
+        return $this->hasOne(InventarioUsuario::class);
+    }
+
+    /**
+     * Talleres cuyos datos puede exportar un Externo Exportado, como en la plataforma anterior.
+     * Usa la misma tabla que la asignación de talleres del evaluador.
+     */
+    public function talleresExportables()
+    {
+        return $this->clientesAsignados();
     }
 
     // Evaluador → revisores que auditan su trabajo
