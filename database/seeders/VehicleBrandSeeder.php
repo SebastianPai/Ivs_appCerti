@@ -2,17 +2,14 @@
 
 namespace Database\Seeders;
 
+use App\Support\CatalogoVehiculos;
 use Illuminate\Database\Seeder;
-use App\Models\VehicleBrand;
 
+/** Marcas y líneas de vehículo de la plataforma anterior (database/data/vehiculos.json). */
 class VehicleBrandSeeder extends Seeder
 {
     public function run(): void
     {
-        $items = ['Chevrolet', 'Mazda', 'Toyota', 'Kia', 'Hyundai', 'Renault'];
-
-        foreach ($items as $item) {
-            VehicleBrand::firstOrCreate(['nombre' => $item]);
-        }
+        CatalogoVehiculos::importar();
     }
 }

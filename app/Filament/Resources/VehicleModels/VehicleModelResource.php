@@ -58,6 +58,16 @@ class VehicleModelResource extends Resource
                 ->label('Modelo')
                 ->required()
                 ->maxLength(120)
+                // Se guarda en mayúsculas: se compara igual, sin importar cómo lo digitó
+                ->rule(fn (\Filament\Schemas\Components\Utilities\Get $get, ?\App\Models\VehicleModel $record) => function (string $attribute, $value, \Closure $fail) use ($get, $record) {
+                    $repetido = \App\Models\VehicleModel::where('brand_id', $get('brand_id'))
+                        ->whereRaw('UPPER(nombre) = ?', [mb_strtoupper(trim((string) $value))])
+                        ->when($record, fn ($q) => $q->whereKeyNot($record->getKey()))
+                        ->exists();
+                    if ($repetido) {
+                        $fail('Esa marca ya tiene este modelo.');
+                    }
+                })
                 ->dehydrateStateUsing(fn (?string $state) => $state ? mb_strtoupper(trim($state)) : null),
         ]);
     }
