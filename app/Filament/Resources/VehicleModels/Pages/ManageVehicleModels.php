@@ -38,7 +38,12 @@ class ManageVehicleModels extends ManageRecords
                     ->label($etiqueta)
                     ->required()
                     ->maxLength(120)
-                    ->unique($modelo, 'nombre'),
+                    // Se guarda en mayúsculas: «kia» y «KIA» son la misma marca
+                    ->rule(fn () => function (string $attribute, $value, \Closure $fail) use ($modelo, $etiqueta) {
+                        if ($modelo::whereRaw('UPPER(nombre) = ?', [mb_strtoupper(trim((string) $value))])->exists()) {
+                            $fail('Ya está registrado.');
+                        }
+                    }),
             ])
             ->action(function (array $data) use ($modelo) {
                 $modelo::create(['nombre' => mb_strtoupper(trim($data['nombre']))]);

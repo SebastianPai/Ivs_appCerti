@@ -286,12 +286,20 @@ class FlujoPlataformaAnteriorTest extends TestCase
 
         // Editar Vehículos: marca, modelo y tipo
         $pagina = Livewire::test(\App\Filament\Resources\VehicleModels\Pages\ManageVehicleModels::class);
-        $pagina->callAction('marca', ['nombre' => 'kia'])->assertHasNoActionErrors();
-        $pagina->callAction('tipo', ['nombre' => 'campero'])->assertHasNoActionErrors();
-        $marca = \App\Models\VehicleBrand::where('nombre', 'KIA')->firstOrFail();
-        $pagina->callAction('create', ['brand_id' => $marca->id, 'nombre' => 'picanto'])->assertHasNoActionErrors();
-        $this->assertDatabaseHas('vehicle_models', ['brand_id' => $marca->id, 'nombre' => 'PICANTO']);
-        $this->assertDatabaseHas('vehicle_types', ['nombre' => 'CAMPERO']);
+        // Las marcas y líneas del original ya vienen cargadas; repetirlas, en cualquier mayúscula, no se deja
+        $kia = \App\Models\VehicleBrand::where('nombre', 'KIA')->firstOrFail();
+        $this->assertDatabaseHas('vehicle_models', ['brand_id' => $kia->id, 'nombre' => 'PICANTO']);
+        Livewire::test(\App\Filament\Resources\VehicleModels\Pages\ManageVehicleModels::class)
+            ->callAction('marca', ['nombre' => 'kia'])->assertHasActionErrors(['nombre']);
+        Livewire::test(\App\Filament\Resources\VehicleModels\Pages\ManageVehicleModels::class)
+            ->callAction('create', ['brand_id' => $kia->id, 'nombre' => 'picanto'])->assertHasActionErrors(['nombre']);
+
+        $pagina->callAction('marca', ['nombre' => 'marca nueva'])->assertHasNoActionErrors();
+        $pagina->callAction('tipo', ['nombre' => 'tipo nuevo'])->assertHasNoActionErrors();
+        $marca = \App\Models\VehicleBrand::where('nombre', 'MARCA NUEVA')->firstOrFail();
+        $pagina->callAction('create', ['brand_id' => $marca->id, 'nombre' => 'linea uno'])->assertHasNoActionErrors();
+        $this->assertDatabaseHas('vehicle_models', ['brand_id' => $marca->id, 'nombre' => 'LINEA UNO']);
+        $this->assertDatabaseHas('vehicle_types', ['nombre' => 'TIPO NUEVO']);
         $this->assertArrayHasKey($marca->id, \App\Models\VehicleBrand::cached()->all(), 'la lista de marcas se refresca');
 
         // Diagnóstico Chip: lo que hay en el sistema y en los datos abiertos de MinEnergía
