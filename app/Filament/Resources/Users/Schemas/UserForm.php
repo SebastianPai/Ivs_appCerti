@@ -83,6 +83,12 @@ class UserForm
                             ->searchable()
                             ->disabled(fn (Get $get) => ! $get('department'))
                             ->required(),
+
+                        // Como en la plataforma anterior, que la guardaba con el usuario
+                        TextInput::make('direccion')
+                            ->label('Dirección')
+                            ->maxLength(255)
+                            ->columnSpanFull(),
                     ]),
                 ]),
 

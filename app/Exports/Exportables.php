@@ -136,7 +136,7 @@ class Exportables
             'cliente' => self::cliente($filtros, $user),
             'revisor' => self::revisor($filtros, $user),
             'sicom' => self::sicom($filtros),
-            'externo' => self::externo($filtros),
+            'externo' => self::externo($filtros, $user),
             'ivs' => self::ivs($filtros),
             'operaciones' => self::operaciones($filtros, $user),
         };
@@ -282,10 +282,12 @@ class Exportables
     }
 
     /** Una fila por certificado emitido. Fechas AAAA-MM-DD. */
-    private static function externo(array $f): array
+    private static function externo(array $f, User $user): array
     {
         // El cambio de chip no es una certificación: no entra en este archivo
         $solicitudes = self::certificadas($f)
+            // Como en la plataforma anterior, el Externo Exportado solo ve los talleres que tiene asignados
+            ->when(! $user->hasRole('admin'), fn (Builder $q) => $q->whereIn('user_id', $user->talleresExportables()->select('users.id')))
             ->whereDoesntHave('serviceType', fn ($t) => $t->where('clase', 'cambio_chip'))
             ->with(['user', 'vehicle', 'vehicleIdentificationType', 'serviceType', 'verificacion.chip', 'verificacion.evaluador'])
             ->get();

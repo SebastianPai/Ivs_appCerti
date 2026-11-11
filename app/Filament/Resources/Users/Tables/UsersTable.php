@@ -76,8 +76,47 @@ class UsersTable
             ])
             ->recordActions([
                 ActionGroup::make([
+                    self::inventario(),
                     ViewAction::make(),
                     EditAction::make(),
+
+                    // Como el ícono de tienda de la plataforma anterior: desde el evaluador (o el externo)
+                    // se marcan sus talleres. Es la misma asignación que «Asignar evaluadores» del taller.
+                    Action::make('asignarTalleres')
+                        ->label('Asignar talleres')
+                        ->icon('heroicon-o-building-storefront')
+                        ->visible(fn (User $record) => $record->hasAnyRole(['evaluador', 'externo']))
+                        ->modalHeading(fn (User $record) => "Talleres de {$record->name}")
+                        ->fillForm(fn (User $record) => ['talleres' => $record->clientesAsignados()->pluck('users.id')->all()])
+                        ->schema([
+                            \Filament\Forms\Components\CheckboxList::make('talleres')
+                                ->label('Talleres')
+                                ->options(fn () => User::role('cliente')->orderBy('name')->pluck('name', 'id'))
+                                ->columns(2)
+                                ->bulkToggleable()
+                                ->helperText(fn (User $record) => $record->hasRole('externo')
+                                    ? 'Solo podrá exportar los certificados de estos talleres.'
+                                    : 'Recibirá las solicitudes de estos talleres.'),
+                        ])
+                        ->action(function (User $record, array $data) {
+                            $cambios = $record->clientesAsignados()->sync($data['talleres'] ?? []);
+
+                            // Igual que «Asignar evaluadores»: el taller se entera de quién lo evalúa
+                            if ($record->hasRole('evaluador')) {
+                                foreach (['attached' => true, 'detached' => false] as $clave => $asignado) {
+                                    foreach (User::whereKey($cambios[$clave])->get() as $taller) {
+                                        \App\Support\Correo::enviar($taller, 'inspector', 'Notificación Nuevo Inspector', 'emails.inspector', [
+                                            'saludo' => $taller->name,
+                                            'inspector' => $record->name,
+                                            'asignado' => $asignado,
+                                            'detalle' => 'Inspector '.($asignado ? 'asignado' : 'desvinculado').": {$record->name}",
+                                        ]);
+                                    }
+                                }
+                            }
+
+                            Notification::make()->title('Talleres actualizados')->success()->send();
+                        }),
 
                     Action::make('asignarEvaluadores')
                         ->label('Asignar evaluadores')
@@ -191,5 +230,76 @@ class UsersTable
                 ]),
             ])
             ->emptyStateHeading('No hay usuarios');
+    }
+
+    /**
+     * «Inventario» de la plataforma anterior: Teléfono Móvil (dos) y Flexómetro, con los mismos
+     * campos. Lo que depende de «Tiene Teléfono Móvil?» se apaga mientras diga No, como allá.
+     */
+    private static function inventario(): Action
+    {
+        $si = ['1' => 'Si', '0' => 'No'];
+
+        $telefono = fn (string $n) => \Filament\Schemas\Components\Fieldset::make("Teléfono {$n}")
+            ->columns(['default' => 1, 'md' => 3])
+            ->schema([
+                Select::make("tiene_movil{$n}")->label('Tiene Teléfono Móvil?')->options($si)->default('0')->selectablePlaceholder(false)->live(),
+                \Filament\Forms\Components\TextInput::make("movil{$n}_marca")->label('Marca Teléfono Móvil')->maxLength(100)
+                    ->disabled(fn (\Filament\Schemas\Components\Utilities\Get $get) => ! $get("tiene_movil{$n}")),
+                \Filament\Forms\Components\TextInput::make("movil{$n}_modelo")->label('Modelo Teléfono Móvil')->maxLength(100)
+                    ->disabled(fn (\Filament\Schemas\Components\Utilities\Get $get) => ! $get("tiene_movil{$n}")),
+                \Filament\Forms\Components\TextInput::make("movil{$n}_serial")->label('Serial Teléfono Móvil')->maxLength(100)
+                    ->disabled(fn (\Filament\Schemas\Components\Utilities\Get $get) => ! $get("tiene_movil{$n}")),
+                Select::make("movil{$n}_tiene_cargador")->label('Teléfono Móvil Tiene Cargador?')->options($si)->default('0')->selectablePlaceholder(false)
+                    ->disabled(fn (\Filament\Schemas\Components\Utilities\Get $get) => ! $get("tiene_movil{$n}")),
+                Select::make("movil{$n}_tiene_caja")->label('Teléfono Móvil Tiene Caja?')->options($si)->default('0')->selectablePlaceholder(false)
+                    ->disabled(fn (\Filament\Schemas\Components\Utilities\Get $get) => ! $get("tiene_movil{$n}")),
+            ]);
+
+        return Action::make('inventario')
+            ->label('Inventario')
+            ->icon('heroicon-o-archive-box')
+            ->modalHeading(fn (User $record) => "Inventario {$record->name}")
+            ->modalWidth('4xl')
+            ->modalSubmitActionLabel('Guardar')
+            ->fillForm(function (User $record) {
+                $datos = $record->inventario?->attributesToArray() ?? [];
+
+                // Los Si/No viajan como texto para el select
+                return collect($datos)->map(fn ($v) => is_bool($v) ? ($v ? '1' : '0') : $v)->all();
+            })
+            ->schema([
+                \Filament\Schemas\Components\Tabs::make()->tabs([
+                    \Filament\Schemas\Components\Tabs\Tab::make('Teléfono Móvil')->schema([$telefono('1'), $telefono('2')]),
+                    \Filament\Schemas\Components\Tabs\Tab::make('Flexómetro')->columns(['default' => 1, 'md' => 3])->schema([
+                        \Filament\Forms\Components\TextInput::make('flexometro_serial')->label('Número Serial')->placeholder('Ingresar número serial')->maxLength(100),
+                        \Filament\Forms\Components\DatePicker::make('flexometro_fecha_entrega')->label('Fecha Entrega')->native(false)->displayFormat('d/m/Y'),
+                        \Filament\Forms\Components\DatePicker::make('flexometro_fecha_verificacion')->label('Fecha Verificación')->native(false)->displayFormat('d/m/Y'),
+                    ]),
+                ]),
+            ])
+            ->action(function (User $record, array $data) {
+                foreach (['1', '2'] as $n) {
+                    // Sin teléfono no se guardan datos viejos del equipo
+                    if (! ($data["tiene_movil{$n}"] ?? false)) {
+                        foreach (['marca', 'modelo', 'serial'] as $campo) {
+                            $data["movil{$n}_{$campo}"] = null;
+                        }
+                        $data["movil{$n}_tiene_cargador"] = $data["movil{$n}_tiene_caja"] = false;
+                    }
+                }
+
+                // Los Si/No que quedaron apagados llegan vacíos: son No
+                foreach (['tiene_movil1', 'movil1_tiene_cargador', 'movil1_tiene_caja', 'tiene_movil2', 'movil2_tiene_cargador', 'movil2_tiene_caja'] as $campo) {
+                    $data[$campo] = (bool) ($data[$campo] ?? false);
+                }
+
+                $record->inventario()->updateOrCreate([], collect($data)
+                    ->only(\App\Models\InventarioUsuario::CAMPOS)
+                    ->all());
+
+                \App\Models\Actividad::registrar('usuario', "Inventario de {$record->name} actualizado", $record);
+                Notification::make()->title('Inventario guardado')->success()->send();
+            });
     }
 }

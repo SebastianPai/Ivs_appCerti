@@ -121,7 +121,12 @@ class ExportablesTest extends TestCase
         $this->inspeccionada($taller, $evaluador, 'SIN000', certificada: false);
         SystemSetting::put('organismo', true, ['nit' => '900000000']);
 
-        $filas = Exportables::filas('externo', self::DIA, $this->usuario('externo'));
+        // El externo exporta solo los talleres que tiene asignados
+        $externo = $this->usuario('externo');
+        $this->assertSame([], Exportables::filas('externo', self::DIA, $externo));
+        $externo->talleresExportables()->attach($taller);
+
+        $filas = Exportables::filas('externo', self::DIA, $externo);
 
         $this->assertCount(1, $filas);
         $this->assertSame([
@@ -243,7 +248,8 @@ class ExportablesTest extends TestCase
     {
         $admin = $this->usuario('admin');
         $this->actingAs($admin);
-        $this->inspeccionada($this->usuario('cliente'), $this->usuario('evaluador'), 'ABC123');
+        $taller = $this->usuario('cliente');
+        $this->inspeccionada($taller, $this->usuario('evaluador'), 'ABC123');
         $ruta = storage_path('app/private/prueba-columnas.xlsx');
 
         // Se respeta el orden del formato aunque se pidan en otro
@@ -281,7 +287,8 @@ class ExportablesTest extends TestCase
 
     public function test_el_archivo_tiene_una_hoja_data_con_encabezados_exactos_y_todo_texto(): void
     {
-        $this->inspeccionada($this->usuario('cliente'), $this->usuario('evaluador'), 'ABC123');
+        $taller = $this->usuario('cliente');
+        $this->inspeccionada($taller, $this->usuario('evaluador'), 'ABC123');
         $ruta = storage_path('app/private/prueba-exportable.xlsx');
 
         $total = Exportables::escribir('sicom', Exportables::filas('sicom', self::DIA, $this->usuario('admin')), $ruta);
@@ -320,7 +327,9 @@ class ExportablesTest extends TestCase
             ->assertNotified('No se encontraron registros')
             ->assertNoFileDownloaded();
 
-        $this->inspeccionada($this->usuario('cliente'), $this->usuario('evaluador'), 'ABC123');
+        $taller = $this->usuario('cliente');
+        $externo->talleresExportables()->attach($taller);
+        $this->inspeccionada($taller, $this->usuario('evaluador'), 'ABC123');
 
         Livewire::test(PaginaExportables::class)
             ->fillForm(self::DIA)
