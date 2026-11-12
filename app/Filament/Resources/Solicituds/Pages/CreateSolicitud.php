@@ -27,6 +27,9 @@ class CreateSolicitud extends CreateRecord
 
     protected static string $resource = SolicitudResource::class;
 
+    /** Estilo suave de los formularios del cliente (ver «Formularios del cliente» en theme.css). */
+    protected array $extraBodyAttributes = ['class' => 'ivs-cliente'];
+
     // Mismo nombre que la entrada del menú y que la pantalla de la plataforma anterior
     protected static ?string $title = 'Nueva Solicitud';
 
@@ -188,7 +191,7 @@ class CreateSolicitud extends CreateRecord
             'url_adjuntos' => $this->getResource()::getUrl('attachments', ['record' => $solicitud]),
         ]);
 
-        foreach ($taller->evaluadores()->get() as $evaluador) {
+        foreach ($solicitud->evaluadoresANotificar() as $evaluador) {
             Correo::enviar($evaluador, 'solicitud_creada', "🔔 Nueva solicitud del taller {$taller->name}", 'emails.nueva_solicitud_evaluador', [
                 'evaluador_name' => $evaluador->name,
                 'cliente_name' => $taller->name,

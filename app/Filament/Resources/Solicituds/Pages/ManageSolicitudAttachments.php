@@ -23,6 +23,9 @@ class ManageSolicitudAttachments extends Page implements HasForms
 
     protected static string $resource = SolicitudResource::class;
 
+    /** Estilo suave de los formularios del cliente (ver «Formularios del cliente» en theme.css). */
+    protected array $extraBodyAttributes = ['class' => 'ivs-cliente'];
+
     protected string $view = 'filament.cliente.pages.manage-attachments';
 
     // $record lo resuelve InteractsWithRecord con getEloquentQuery() del recurso (respeta el alcance del rol)
@@ -132,7 +135,8 @@ class ManageSolicitudAttachments extends Page implements HasForms
 
         $asunto = $eraDevuelta ? "🔁 Solicitud corregida - Placa: {$placa}" : "📂 Documentos cargados - Placa: {$placa}";
 
-        foreach ($taller->evaluadores()->get() as $evaluador) {
+        // Solo al evaluador que ya la tiene (p. ej. la devolvió); si nadie la ha tomado, a los del taller
+        foreach ($this->record->evaluadoresANotificar() as $evaluador) {
             Correo::enviar($evaluador, 'documentos', $asunto, 'emails.documentos_cargados_evaluador', [
                 'evaluador_name' => $evaluador->name,
                 'cliente_name' => $taller->name,

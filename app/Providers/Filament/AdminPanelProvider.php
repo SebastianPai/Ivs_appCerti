@@ -3,6 +3,7 @@
 namespace App\Providers\Filament;
 
 use App\Filament\Pages\Auth\EditarPerfil;
+use App\Filament\Pages\Auth\Login;
 use App\Exports\Exportables as Exportador;
 use App\Filament\Pages\Dashboard;
 use App\Filament\Pages\Exportables;
@@ -20,7 +21,6 @@ use Filament\Http\Middleware\DispatchServingFilamentEvent;
 use Filament\Navigation\NavigationGroup;
 use Filament\Panel;
 use Filament\PanelProvider;
-use Filament\Support\Colors\Color;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
@@ -53,10 +53,13 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('ivs')
             ->authGuard('web')
-            ->login()
+            ->login(Login::class)
             ->passwordReset()
             // Como en la plataforma anterior: sin confirmar el correo no se entra
             ->emailVerification()
+            // Cambiar el correo exige confirmarlo desde el correo nuevo; al anterior le llega un aviso
+            // con un enlace para bloquear el cambio si no lo reconoce
+            ->emailChangeVerification()
             ->profile(EditarPerfil::class, isSimple: false)
             // Verificación en dos pasos con app (Google Authenticator, Microsoft Authenticator, Authy…).
             // Es opcional para todos y obligatoria para los roles elegidos en Configuración (ver Exigir2FA).
@@ -68,11 +71,27 @@ class AdminPanelProvider extends PanelProvider
             ->databaseNotifications()
             ->databaseNotificationsPolling('60s')
             ->brandName('IVS Certificaciones')
-            ->brandLogo(asset('images/logo-sm.png'))
+            ->brandLogo(fn () => view('filament.marca'))
             ->brandLogoHeight('2.5rem')
             ->favicon(asset('images/favicon-32.png'))
+            // Avatar con iniciales generado aquí (el de Filament enviaba el nombre a ui-avatars.com)
+            ->defaultAvatarProvider(\App\Filament\AvatarProviders\Iniciales::class)
+            // Paleta de la marca: rojo IVS suavizado (rosa apagado). Se define solo aquí y la usan
+            // botones, pasos, casillas, enlaces y menús de toda la app.
             ->colors([
-                'primary' => Color::Red,
+                'primary' => [
+                    50 => '#fbf4f4',
+                    100 => '#f5e6e6',
+                    200 => '#ecd0d0',
+                    300 => '#ddaeaf',
+                    400 => '#c98386',
+                    500 => '#b5636a',
+                    600 => '#a5484e',
+                    700 => '#8b3c42',
+                    800 => '#73343a',
+                    900 => '#612f34',
+                    950 => '#361719',
+                ],
             ])
             ->viteTheme('resources/css/filament/admin/theme.css')
             // Menú en la barra superior, con los mismos grupos, nombres y orden de la plataforma
@@ -125,6 +144,8 @@ class AdminPanelProvider extends PanelProvider
                 SubstituteBindings::class,
                 DisableBladeIconComponents::class,
                 DispatchServingFilamentEvent::class,
+                // El panel no pasa por el grupo «web»: las cabeceras de seguridad se agregan aquí también
+                \App\Http\Middleware\CabecerasSeguridad::class,
             ])
             ->authMiddleware([
                 Authenticate::class,

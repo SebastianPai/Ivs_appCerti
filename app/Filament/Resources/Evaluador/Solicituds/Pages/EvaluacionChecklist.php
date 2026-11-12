@@ -62,6 +62,12 @@ class EvaluacionChecklist extends Page implements HasForms
     {
         $this->record = $this->resolveRecord($record)->load('cilindros');
 
+        if (SolicitudResource::bloqueadaPorHorario()) {
+            $this->redirect(SolicitudResource::getUrl('index'));
+
+            return;
+        }
+
         if (! $this->record->esEvaluable()) {
             Notification::make()->title('Esta solicitud no está pendiente de evaluación')->warning()->send();
             $this->redirect(SolicitudResource::getUrl('index'));
@@ -356,10 +362,11 @@ class EvaluacionChecklist extends Page implements HasForms
     {
         /** @var User $evaluador */
         $evaluador = Auth::user();
-        $revisores = $evaluador->revisores()->get();
+        // Solo revisores activos y que sigan teniendo el rol (una asignación vieja no debe recibir avisos)
+        $revisores = $evaluador->revisores()->role('revisor')->activos()->get();
 
         if ($revisores->isEmpty()) {
-            $revisores = User::role('revisor')->get();
+            $revisores = User::role('revisor')->activos()->get();
         }
 
         $placa = $this->record->placa();

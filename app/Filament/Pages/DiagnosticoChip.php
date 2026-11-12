@@ -59,7 +59,7 @@ class DiagnosticoChip extends Page
                     ->maxLength(100)
                     ->autocomplete(false)
                     ->extraInputAttributes(['id' => 'ivs-chip-input', 'style' => 'text-transform: uppercase', 'autocapitalize' => 'characters']),
-                View::make('filament.evaluador.solicituds.chip-reader'),
+                View::make('filament.evaluador.solicituds.chip-reader')->viewData(['notas' => false]),
             ])
             ->statePath('data');
     }

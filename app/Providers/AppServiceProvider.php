@@ -19,11 +19,35 @@ class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        //
+        // Correos de la cuenta con el diseño y los textos de IVS (Configuración → Correos)
+        $this->app->bind(\Filament\Auth\Notifications\VerifyEmail::class, \App\Notifications\Cuenta\BienvenidaConfirmarCorreo::class);
+        $this->app->bind(\Filament\Auth\Notifications\ResetPassword::class, \App\Notifications\Cuenta\RestablecerContrasena::class);
+        $this->app->bind(\Filament\Auth\Notifications\VerifyEmailChange::class, \App\Notifications\Cuenta\ConfirmarCambioCorreo::class);
+        $this->app->bind(\Filament\Auth\Notifications\NoticeOfEmailChangeRequest::class, \App\Notifications\Cuenta\AvisoCambioCorreo::class);
     }
 
     public function boot(): void
     {
+        // SMTP: validar el certificado del servidor con la cadena de MAIL_CAFILE (ver config/mail.php)
+        $this->callAfterResolving('mail.manager', function (\Illuminate\Mail\MailManager $correo) {
+            $cafile = config('mail.mailers.smtp.cafile');
+
+            if (blank($cafile) || config('mail.default') !== 'smtp') {
+                return;
+            }
+
+            $transporte = $correo->mailer('smtp')->getSymfonyTransport();
+
+            if ($transporte instanceof \Symfony\Component\Mailer\Transport\Smtp\EsmtpTransport) {
+                $ruta = str_starts_with($cafile, '/') || preg_match('/^[A-Za-z]:/', $cafile) ? $cafile : base_path($cafile);
+                $transporte->getStream()->setStreamOptions(['ssl' => ['cafile' => $ruta]]);
+            }
+        });
+
+        // Contraseñas: mínimo 8 caracteres con letras y números (perfil y «Restablecer contraseña» de Filament
+        // usan Password::default(); es la misma regla de «Cambiar contraseña»)
+        \Illuminate\Validation\Rules\Password::defaults(fn () => \Illuminate\Validation\Rules\Password::min(8)->letters()->numbers());
+
         // Archivos privados (documentos, fotos, cámara de comercio): Filament y la app piden
         // enlaces temporales; se sirven por la ruta "archivos.privado", que exige sesión y firma.
         Storage::disk('local')->buildTemporaryUrlsUsing(

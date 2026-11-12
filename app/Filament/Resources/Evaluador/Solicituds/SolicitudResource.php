@@ -112,6 +112,26 @@ class SolicitudResource extends Resource
             ->first();
     }
 
+    /**
+     * «Restringir acceso inspector»: fuera del horario no se abre la solicitud. Avisa con el
+     * mismo texto de la plataforma anterior.
+     */
+    public static function bloqueadaPorHorario(): bool
+    {
+        if (! \App\Support\HorarioEvaluador::fueraDeHorario(Auth::user())) {
+            return false;
+        }
+
+        \Filament\Notifications\Notification::make()
+            ->title('Fuera de horario')
+            ->body(\App\Support\HorarioEvaluador::MENSAJE)
+            ->warning()
+            ->persistent()
+            ->send();
+
+        return true;
+    }
+
     /** Paso 1 completo: declaró no conflicto de interés y registró ubicación. */
     public static function filtroCompleto(Solicitud $solicitud): bool
     {

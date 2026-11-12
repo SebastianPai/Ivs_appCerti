@@ -20,6 +20,7 @@ use App\Services\ColombiaGeo;
 use App\Services\SicomAbierto;
 use Closure;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -60,7 +61,15 @@ class SolicitudForm
     {
         return [
             // Mismos bloques y orden de «Nueva Solicitud» en la plataforma anterior
-            Step::make('Buscar Vehículo')->icon('heroicon-o-magnifying-glass')->description('Placa o chasis')->schema(self::vehiculo()),
+            Step::make('Buscar Vehículo')->icon('heroicon-o-magnifying-glass')->description('Placa o chasis')->schema(self::vehiculo())
+                // Si no se alcanzó a buscar mientras se escribía (p. ej. un chasis corto), se busca al dar «Siguiente»
+                ->afterValidation(function (Get $get, Set $set): void {
+                    $identificacion = self::normalizar($get('vehicle_identification'));
+
+                    if ($identificacion !== '' && $get('vehiculo_buscado') !== $identificacion) {
+                        self::autocompletarVehiculo($identificacion, $get, $set, true);
+                    }
+                }),
             Step::make('Tipo de servicio')->icon('heroicon-o-wrench')->description('Servicio y sistema')->schema(self::servicio()),
             Step::make('Propietario')->icon('heroicon-o-user')->description('Datos de contacto')->schema(self::propietario()),
             Step::make('Datos vehículos')->icon('heroicon-o-truck')->description('Marca, modelo y año')->schema(self::datosDelVehiculo()),
@@ -130,8 +139,17 @@ class SolicitudForm
                             }
                         },
                     ])
-                    ->live(onBlur: true)
-                    ->afterStateUpdated(fn (?string $state, Get $get, Set $set, ?Solicitud $record) => self::autocompletarVehiculo($state, $get, $set, $record === null)),
+                    // Se busca mientras se escribe, apenas la placa está completa. Antes se buscaba al salir del
+                    // campo, pero ese momento era el clic en «Siguiente»: el botón quedaba bloqueado por la
+                    // búsqueda y el clic se perdía (había que darlo dos veces).
+                    ->live(debounce: 500)
+                    ->afterStateUpdated(function (?string $state, Get $get, Set $set, ?Solicitud $record): void {
+                        if (self::identificacionCompleta($state, $get)) {
+                            self::autocompletarVehiculo($state, $get, $set, $record === null);
+                        }
+                    }),
+                // Última identificación buscada, para no repetir la búsqueda al dar «Siguiente»
+                Hidden::make('vehiculo_buscado')->dehydrated(false),
             ]),
         ];
     }
@@ -473,13 +491,30 @@ class SolicitudForm
      * Al digitar la placa: consulta SICOM y precarga lo conocido del vehículo. En una solicitud nueva
      * trae además el sistema y los equipos del último servicio, como la plataforma anterior.
      */
+    private static function normalizar(?string $identificacion): string
+    {
+        return strtoupper(preg_replace('/[\s-]+/', '', (string) $identificacion));
+    }
+
+    /** Placa con formato completo (ABC123 / ABC12D) o VIN de 17 caracteres. */
+    private static function identificacionCompleta(?string $identificacion, Get $get): bool
+    {
+        $valor = self::normalizar($identificacion);
+
+        return self::esChasis($get)
+            ? (bool) preg_match('/^[A-Z0-9]{17}$/', $valor)
+            : (bool) preg_match('/^[A-Z]{3}\d{3}$|^[A-Z]{3}\d{2}[A-Z]$/', $valor);
+    }
+
     private static function autocompletarVehiculo(?string $identificacion, Get $get, Set $set, bool $nueva = false): void
     {
-        $identificacion = strtoupper(preg_replace('/[\s-]+/', '', (string) $identificacion));
+        $identificacion = self::normalizar($identificacion);
 
         if ($identificacion === '') {
             return;
         }
+
+        $set('vehiculo_buscado', $identificacion);
 
         // Como en la plataforma anterior: primero SICOM y después los datos propios
         $sicom = self::consultarSicom($identificacion, self::esChasis($get));

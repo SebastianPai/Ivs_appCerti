@@ -11,6 +11,9 @@ use Illuminate\Database\Eloquent\Model;
 
 class EditSolicitud extends EditRecord
 {
+    /** Estilo suave de los formularios del cliente (ver «Formularios del cliente» en theme.css). */
+    protected array $extraBodyAttributes = ['class' => 'ivs-cliente'];
+
     protected static string $resource = SolicitudResource::class;
 
     protected function getHeaderActions(): array

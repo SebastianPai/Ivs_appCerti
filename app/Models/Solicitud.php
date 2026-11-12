@@ -218,6 +218,23 @@ class Solicitud extends Model
         return $this->hasOne(SolicitudVerificacion::class, 'solicitud_id')->latestOfMany();
     }
 
+    /**
+     * Evaluadores a quienes avisar de esta solicitud: si un evaluador ya la tomó (tiene verificación),
+     * solo él; si nadie la ha tomado, los evaluadores asignados al taller. Siempre activos y con el rol.
+     *
+     * @return \Illuminate\Support\Collection<int, User>
+     */
+    public function evaluadoresANotificar(): \Illuminate\Support\Collection
+    {
+        $encargado = $this->verificacion?->evaluador;
+
+        if ($encargado && $encargado->activo !== false && $encargado->hasRole('evaluador')) {
+            return collect([$encargado]);
+        }
+
+        return $this->user?->evaluadores()->role('evaluador')->activos()->get() ?? collect();
+    }
+
     public function actividades()
     {
         return $this->hasMany(Actividad::class, 'solicitud_id')->latest('created_at')->latest('id');

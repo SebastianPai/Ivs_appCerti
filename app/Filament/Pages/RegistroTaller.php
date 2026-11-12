@@ -17,6 +17,9 @@ use Illuminate\Support\Facades\Auth;
  */
 class RegistroTaller extends Page
 {
+    /** Estilo suave de los formularios del cliente (ver «Formularios del cliente» en theme.css). */
+    protected array $extraBodyAttributes = ['class' => 'ivs-cliente'];
+
     protected string $view = 'filament.pages.registro-taller';
 
     protected static ?string $slug = 'registro-industria-comercio';

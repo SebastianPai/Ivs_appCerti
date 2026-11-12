@@ -113,3 +113,453 @@
 .ivs-linea__texto {
     @apply mt-0.5 text-sm text-gray-900 dark:text-gray-100;
 }
+
+/* ------------------------------------------------------------------
+ * Pantalla de ingreso (resources/views/filament/pages/auth/login.blade.php)
+ * Fondo neutro claro (gris cálido), tarjeta blanca, acentos arena y rubor,
+ * y el rosa solo en el botón y detalles pequeños.
+ * ------------------------------------------------------------------ */
+.ivs-login {
+    --l-fondo: #f1efef;
+    --l-fondo-claro: #f6f3f2;
+    --l-tarjeta: #ffffff;
+    --l-adorno: rgb(165 72 78 / .14);
+    --l-texto: #2f2427;
+    --l-suave: #9d8f91;
+    --l-arena: #e8c8a0;
+    --l-rubor: #f2d9d5;
+    --l-boton: #a5484e;
+    --l-boton-hover: #8f3c42;
+
+    position: relative;
+    display: flex;
+    min-height: 100vh;
+    min-height: 100dvh;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    padding: 3rem 1rem;
+    background: linear-gradient(140deg, #f7f6f6 0%, var(--l-fondo) 55%, #ebe8e8 100%);
+    font-family: 'Poppins', var(--font-family), sans-serif;
+    color: var(--l-texto);
+    color-scheme: light;
+}
+
+/* Adornos */
+.ivs-login__fondo { position: absolute; inset: 0; pointer-events: none; }
+.ivs-login__fondo span { position: absolute; display: block; }
+.ivs-login__curva {
+    top: -30%; right: -25%; width: 85%; height: 160%;
+    border-radius: 50%; background: var(--l-fondo-claro); opacity: .8;
+}
+.ivs-login__circulo { border-radius: 50%; }
+.ivs-login__circulo--grande { left: 3%; bottom: -8%; width: 15rem; height: 15rem; background: rgb(165 72 78 / .06); }
+.ivs-login__circulo--chico { right: 24%; top: 6%; width: 3rem; height: 3rem; background: rgb(165 72 78 / .12); }
+.ivs-login__punto { width: 1.4rem; height: 1.4rem; border-radius: 50%; background: #fff; box-shadow: 0 6px 16px -8px rgb(80 40 45 / .35); }
+.ivs-login__punto--a { right: 2.5%; top: 43%; }
+.ivs-login__punto--b { right: 4%; bottom: 3.5%; width: 3rem; height: 3rem; }
+.ivs-login__triangulo {
+    width: 0; height: 0;
+    border-top: 1.5rem solid transparent; border-bottom: 1.5rem solid transparent;
+    border-left: 2.6rem solid var(--l-arena);
+}
+.ivs-login__triangulo--a { left: 4%; top: 2.5%; }
+.ivs-login__triangulo--b { left: 32%; bottom: 4%; }
+.ivs-login__cinta { width: 5rem; height: 2.5rem; background: #f0cfcb; }
+.ivs-login__cinta--a { left: 3.5%; top: 45%; transform: skewY(-14deg); }
+.ivs-login__cinta--b { right: 2%; top: 62%; width: 6rem; transform: skewY(-24deg); }
+.ivs-login__marco {
+    left: 29.5%; bottom: 7%; width: 3.5rem; height: 3rem;
+    border: 1.5px dashed rgb(165 72 78 / .35); transform: rotate(14deg);
+}
+.ivs-login__puntos {
+    background-image: radial-gradient(circle, var(--l-adorno) 32%, transparent 36%);
+    background-size: 2.2rem 2.2rem;
+}
+.ivs-login__puntos--arriba { left: 3.5%; top: 10%; width: 25rem; height: 1.4rem; }
+.ivs-login__puntos--izq { left: 3.5%; top: 13%; width: 3.6rem; height: 20rem; }
+.ivs-login__puntos--abajo { right: 3.5%; bottom: 7%; width: 22rem; height: 3.6rem; }
+
+/* Tarjeta */
+.ivs-login__tarjeta {
+    position: relative;
+    display: flex;
+    width: 100%;
+    max-width: 86rem;
+    min-height: min(46rem, calc(100dvh - 6rem));
+    flex-direction: column;
+    border-radius: 2rem;
+    background: var(--l-tarjeta);
+    padding: 2.5rem 1.5rem 1.5rem;
+    box-shadow: 0 30px 70px -35px rgb(60 25 30 / .35), 0 0 0 1px rgb(80 40 45 / .04);
+}
+@media (min-width: 768px) {
+    .ivs-login__tarjeta { padding: 3.5rem 5.5rem 2.25rem; }
+}
+.ivs-login__marca { display: inline-flex; align-items: center; gap: .75rem; font-size: 1.35rem; color: var(--l-texto); }
+.ivs-login__marca b { font-weight: 600; color: var(--l-boton); }
+.ivs-login__logo { height: 2.75rem; width: auto; }
+
+.ivs-login__cuerpo {
+    display: grid;
+    flex: 1;
+    align-items: center;
+    gap: 3rem;
+    padding: 3rem 0;
+}
+@media (min-width: 1024px) {
+    .ivs-login__cuerpo { grid-template-columns: minmax(0, 26rem) minmax(0, 1fr); gap: 4rem; padding-left: 4.5rem; }
+}
+.ivs-login__ilustracion svg { width: 100%; }
+@media (min-width: 1024px) {
+    .ivs-login__ilustracion svg { max-width: 34rem; margin-left: auto; }
+}
+/* Tablet y celular: la ilustración va arriba, pequeña, y el formulario centrado debajo */
+@media (max-width: 1023px) {
+    .ivs-login__cuerpo { gap: 1.5rem; padding: 1.5rem 0 2rem; }
+    .ivs-login__ilustracion { order: -1; }
+    .ivs-login__ilustracion svg { display: block; max-width: 17rem; margin: 0 auto; }
+    .ivs-login__form { width: 100%; max-width: 26rem; margin: 0 auto; }
+}
+
+.ivs-login__titulo { font-family: 'Poppins', sans-serif; margin-bottom: 2.25rem; font-size: 1.1rem; font-weight: 600; color: var(--l-texto); }
+.ivs-login__subtitulo { margin: -1.5rem 0 1.75rem; font-size: .875rem; color: var(--l-suave); }
+
+/* Campos del formulario */
+.ivs-login .fi-input-wrp {
+    border-radius: .25rem;
+    background: #fff;
+    box-shadow: 0 1px 3px rgb(80 40 45 / .05);
+    --tw-ring-color: transparent;
+}
+.ivs-login .fi-input-wrp:focus-within { box-shadow: 0 0 0 2px rgb(165 72 78 / .28); }
+.ivs-login .fi-input-wrp.fi-invalid { box-shadow: 0 0 0 1.5px rgb(165 72 78 / .7); }
+.ivs-login .fi-input {
+    padding: 1.15rem 1.75rem;
+    font-size: 1rem;
+    color: var(--l-texto);
+    background: transparent;
+}
+.ivs-login .fi-input::placeholder { color: #a99ea0; }
+.ivs-login .fi-input-wrp-suffix { padding-inline-end: 1.25rem; border: 0; }
+.ivs-login .fi-input-wrp-suffix .fi-icon-btn { color: #b3a8aa; }
+.ivs-login .fi-fo-field-wrp-error-message { color: var(--l-boton); }
+.ivs-login .fi-checkbox-input { accent-color: var(--l-boton); }
+.ivs-login .fi-fo-field-label-content,
+.ivs-login .fi-fo-checkbox label { color: var(--l-suave); font-size: .85rem; }
+.ivs-login .fi-sc-form { gap: 1.75rem; }
+
+/* «¿Olvidaste tu contraseña?» + «Ingresar» */
+.ivs-login .fi-sc-actions { margin-top: .75rem; }
+.ivs-login .ivs-login__olvide,
+.ivs-login .ivs-login__olvide .fi-link-label { font-size: .85rem; font-weight: 400; color: var(--l-suave); }
+.ivs-login .ivs-login__olvide:hover .fi-link-label { color: var(--l-boton); }
+.ivs-login button[type='submit'].fi-btn {
+    border-radius: 9999px;
+    padding: .8rem 2.75rem;
+    font-size: 1rem;
+    font-weight: 400;
+    background: var(--l-boton);
+    color: #fff;
+    box-shadow: 0 10px 20px -10px rgb(165 72 78 / .7);
+}
+.ivs-login button[type='submit'].fi-btn:hover { background: var(--l-boton-hover); }
+
+/* Pie */
+.ivs-login__pie {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    font-size: .85rem;
+    color: var(--l-suave);
+}
+.ivs-login__indicador { display: inline-flex; gap: .6rem; }
+.ivs-login__indicador i { width: .6rem; height: .6rem; border-radius: 50%; background: #cfc4c5; }
+.ivs-login__indicador i:first-child { background: var(--l-boton); }
+.ivs-login__indicador i:nth-child(2) { background: var(--l-arena); }
+
+@media (max-width: 767px) {
+    .ivs-login { padding: 1rem; align-items: stretch; }
+    .ivs-login__puntos, .ivs-login__cinta, .ivs-login__marco, .ivs-login__triangulo,
+    .ivs-login__punto, .ivs-login__circulo--chico { display: none; }
+    .ivs-login__tarjeta { min-height: auto; border-radius: 1.5rem; padding: 1.75rem 1.25rem 1.25rem; }
+    .ivs-login__marca { font-size: 1.15rem; }
+    .ivs-login__logo { height: 2.25rem; }
+    .ivs-login__ilustracion svg { max-width: 13rem; }
+    .ivs-login__titulo { margin-bottom: 1.5rem; text-align: center; }
+    .ivs-login .fi-input { padding: 1rem 1.25rem; }
+    .ivs-login .fi-sc-form { gap: 1.25rem; }
+    /* Botón a todo el ancho y el enlace de la contraseña debajo, centrado */
+    .ivs-login .fi-sc-actions .fi-ac { flex-direction: column-reverse; align-items: stretch; gap: 1rem; }
+    .ivs-login button[type='submit'].fi-btn { width: 100%; }
+    .ivs-login .ivs-login__olvide { align-self: center; }
+    .ivs-login__pie { justify-content: center; }
+    .ivs-login__indicador { display: none; }
+}
+
+/* ------------------------------------------------------------------
+ * Formularios del cliente: misma paleta suave de la pantalla de ingreso.
+ * Se activa con la clase `ivs-cliente` en el <body> (propiedad $extraBodyAttributes
+ * de CreateSolicitud, EditSolicitud, ManageSolicitudAttachments y RegistroTaller).
+ * ------------------------------------------------------------------ */
+/* Contenido por encima del carrito decorativo */
+body.ivs-cliente .fi-main {
+    position: relative;
+    z-index: 1;
+}
+
+/* Modo claro: fondo casi blanco, tarjetas blancas con sombra suave */
+html:not(.dark) body.ivs-cliente { background: #fbfafa; }
+html:not(.dark) body.ivs-cliente .fi-header-heading,
+html:not(.dark) body.ivs-cliente .fi-main .fi-section-header-heading { color: #2f2427; }
+html:not(.dark) body.ivs-cliente .fi-main .fi-section,
+html:not(.dark) body.ivs-cliente .fi-main .fi-sc-wizard-header {
+    background: #fff;
+    --tw-ring-color: #efe4e2;
+    box-shadow: 0 18px 40px -28px rgb(80 40 45 / .35);
+}
+html:not(.dark) body.ivs-cliente .fi-main .fi-section .fi-section { box-shadow: none; background: #fafafa; }
+html:not(.dark) body.ivs-cliente .fi-main .fi-input-wrp { --tw-ring-color: #eaddda; background: #fff; }
+html:not(.dark) body.ivs-cliente .fi-main .fi-input::placeholder { color: #b0a5a7; }
+html:not(.dark) body.ivs-cliente .fi-main .fi-fo-field-label-content { color: #5b4b4f; }
+html:not(.dark) body.ivs-cliente .fi-main .filepond--panel-root { background: #fbf4f4; }
+
+/* Modo oscuro: fondo oscuro cálido y el rosa un poco más claro para que se lea */
+html.dark body.ivs-cliente { background: #1b1617; }
+html.dark body.ivs-cliente .fi-main .fi-btn.fi-color-primary { box-shadow: none; }
+html.dark body.ivs-cliente .fi-main .fi-section,
+html.dark body.ivs-cliente .fi-main .fi-sc-wizard-header { background: #241d1f; --tw-ring-color: rgb(255 255 255 / .07); }
+html.dark body.ivs-cliente .fi-main .fi-input-wrp { background: #2a2224; --tw-ring-color: rgb(255 255 255 / .08); }
+html.dark body.ivs-cliente .fi-main .filepond--panel-root { background: #2a2224; border-color: rgb(255 255 255 / .12); }
+
+/* Carrito decorativo en la esquina: solo en pantallas grandes, detrás del contenido */
+@media (min-width: 1280px) {
+    body.ivs-cliente::after {
+        content: '';
+        position: fixed;
+        right: 1.5rem;
+        bottom: 1rem;
+        z-index: 0;
+        width: 15rem;
+        height: 13rem;
+        background: url('/images/carrito-ivs.svg') no-repeat center / contain;
+        pointer-events: none;
+    }
+    html.dark body.ivs-cliente::after { opacity: .55; }
+}
+
+/* ------------------------------------------------------------------
+ * Barra superior y menús: misma paleta suave de la pantalla de ingreso
+ * (rosa apagado solo en lo activo; el resto en tonos crema y gris cálido).
+ * ------------------------------------------------------------------ */
+/* Marca: logo + nombre */
+.ivs-marca { display: inline-flex; height: 100%; align-items: center; gap: .6rem; white-space: nowrap; }
+.ivs-marca__logo { height: 2.1rem; width: auto; }
+.ivs-marca__texto { font-size: 1.05rem; color: #2f2427; letter-spacing: -.01em; }
+.ivs-marca__texto b { font-weight: 700; color: #a5484e; }
+.dark .ivs-marca__texto { color: #f3eceb; }
+.dark .ivs-marca__texto b { color: #d79a9d; }
+@media (max-width: 1023px) { .ivs-marca__texto { display: none; } }
+
+/* Barra */
+.fi-topbar {
+    border-bottom: 0;
+    background: rgb(255 255 255 / .92);
+    backdrop-filter: saturate(1.4) blur(10px);
+    box-shadow: 0 1px 0 #f1e7e5, 0 10px 30px -22px rgb(80 40 45 / .45);
+}
+.dark .fi-topbar {
+    background: rgb(29 23 25 / .9);
+    box-shadow: 0 1px 0 rgb(255 255 255 / .06), 0 10px 30px -22px rgb(0 0 0 / .8);
+}
+
+/* Entradas del menú: píldoras suaves, la activa en rosa claro */
+.fi-topbar .fi-topbar-item-btn {
+    border-radius: 9999px;
+    padding: .45rem .95rem;
+    transition: background-color .15s, color .15s;
+}
+.fi-topbar .fi-topbar-item-btn:hover { background: #f8eeec; }
+.fi-topbar .fi-topbar-item-label { font-weight: 500; color: #5b4b4f; }
+.fi-topbar .fi-topbar-item-icon,
+.fi-topbar .fi-topbar-group-toggle-icon { color: #a99ea0; }
+.fi-topbar .fi-topbar-item.fi-active .fi-topbar-item-btn { background: #f5e6e6; }
+.fi-topbar .fi-topbar-item.fi-active .fi-topbar-item-label { color: #8b3c42; }
+.fi-topbar .fi-topbar-item.fi-active .fi-topbar-item-icon,
+.fi-topbar .fi-topbar-item.fi-active .fi-topbar-group-toggle-icon { color: #a5484e; }
+.dark .fi-topbar .fi-topbar-item-btn:hover { background: rgb(255 255 255 / .05); }
+.dark .fi-topbar .fi-topbar-item-label { color: #d8cdcf; }
+.dark .fi-topbar .fi-topbar-item.fi-active .fi-topbar-item-btn { background: rgb(201 131 134 / .16); }
+.dark .fi-topbar .fi-topbar-item.fi-active .fi-topbar-item-label { color: #e6b7b9; }
+.dark .fi-topbar .fi-topbar-item.fi-active .fi-topbar-item-icon,
+.dark .fi-topbar .fi-topbar-item.fi-active .fi-topbar-group-toggle-icon { color: #d79a9d; }
+
+/* Buscador redondo y avatar en rosa */
+.fi-topbar .fi-global-search-field .fi-input-wrp {
+    border-radius: 9999px;
+    background: #f7f6f6;
+    --tw-ring-color: #ebe6e5;
+}
+.dark .fi-topbar .fi-global-search-field .fi-input-wrp { background: rgb(255 255 255 / .04); --tw-ring-color: rgb(255 255 255 / .08); }
+.fi-topbar .fi-user-avatar { box-shadow: 0 0 0 3px #f5e6e6; }
+.dark .fi-topbar .fi-user-avatar { box-shadow: 0 0 0 3px rgb(201 131 134 / .2); }
+
+/* Menús desplegables (grupos del menú, usuario, acciones) */
+.fi-dropdown-panel {
+    border-radius: .9rem;
+    --tw-ring-color: #efe4e2;
+    box-shadow: 0 20px 45px -20px rgb(80 40 45 / .35);
+    overflow: hidden;
+}
+.dark .fi-dropdown-panel { --tw-ring-color: rgb(255 255 255 / .08); box-shadow: 0 20px 45px -20px rgb(0 0 0 / .8); }
+.fi-dropdown-panel .fi-dropdown-list { padding: .35rem; }
+.fi-dropdown-panel .fi-dropdown-list-item { border-radius: .55rem; }
+.fi-dropdown-panel .fi-dropdown-list-item:hover,
+.fi-dropdown-panel .fi-dropdown-list-item:focus-visible { background: #fbf4f4; }
+.dark .fi-dropdown-panel .fi-dropdown-list-item:hover,
+.dark .fi-dropdown-panel .fi-dropdown-list-item:focus-visible { background: rgb(255 255 255 / .05); }
+
+/* Menú lateral (celular y tablet) */
+.fi-sidebar .fi-sidebar-item-btn { border-radius: .65rem; }
+.fi-sidebar .fi-sidebar-item.fi-active .fi-sidebar-item-btn { background: #f5e6e6; }
+.fi-sidebar .fi-sidebar-item.fi-active .fi-sidebar-item-label { color: #8b3c42; }
+.dark .fi-sidebar .fi-sidebar-item.fi-active .fi-sidebar-item-btn { background: rgb(201 131 134 / .16); }
+.dark .fi-sidebar .fi-sidebar-item.fi-active .fi-sidebar-item-label { color: #e6b7b9; }
+.fi-sidebar .fi-sidebar-group-label { letter-spacing: .04em; text-transform: uppercase; font-size: .7rem; color: #a99ea0; }
+
+/* ------------------------------------------------------------------
+ * Lector de chip (resources/views/filament/evaluador/solicituds/chip-reader.blade.php)
+ * ------------------------------------------------------------------ */
+.ivs-chip { @apply flex flex-col gap-3; }
+.ivs-chip__paso { @apply flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-200; }
+.ivs-chip__paso > span:first-child {
+    @apply flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary-600 text-[11px] font-bold text-white;
+}
+.ivs-chip__metodos { @apply grid gap-2 sm:grid-cols-3; }
+.ivs-chip__metodo {
+    @apply relative flex items-center gap-3 rounded-xl border border-gray-200 bg-white px-3 py-3 text-start transition dark:border-white/10 dark:bg-white/5;
+}
+.ivs-chip__metodo:not(:disabled):hover { @apply border-primary-300 dark:border-primary-500/40; }
+.ivs-chip__metodo:disabled { @apply cursor-not-allowed opacity-55; }
+.ivs-chip__metodo--activo {
+    @apply border-primary-500 bg-primary-50 ring-1 ring-primary-500 dark:border-primary-400 dark:bg-primary-500/10 dark:ring-primary-400;
+}
+.ivs-chip__metodo-icono { @apply h-6 w-6 shrink-0 text-gray-400; }
+.ivs-chip__metodo--activo .ivs-chip__metodo-icono { @apply text-primary-600 dark:text-primary-400; }
+.ivs-chip__metodo-texto { @apply flex min-w-0 flex-col; }
+.ivs-chip__metodo-titulo { @apply text-sm font-medium text-gray-900 dark:text-white; }
+.ivs-chip__metodo-detalle { @apply text-xs text-gray-500 dark:text-gray-400; }
+.ivs-chip__punto {
+    @apply inline-block h-2.5 w-2.5 shrink-0 rounded-full bg-success-500;
+    box-shadow: 0 0 0 3px rgb(34 197 94 / .2);
+}
+.ivs-chip__metodo .ivs-chip__punto { @apply absolute end-3 top-3; }
+.ivs-chip__panel { @apply rounded-xl border border-dashed border-gray-300 bg-gray-50/70 p-4 dark:border-white/15 dark:bg-white/5; }
+.ivs-chip__fila { @apply flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between; }
+.ivs-chip__ayuda { @apply text-sm text-gray-600 dark:text-gray-300; }
+.ivs-chip__lista { @apply list-decimal space-y-1 ps-5 text-sm text-gray-600 dark:text-gray-300; }
+.ivs-chip__accion { @apply w-full shrink-0 sm:w-auto; }
+.ivs-chip__botones { @apply grid gap-2 sm:flex; }
+.ivs-chip__conectado {
+    @apply flex items-center gap-2 rounded-lg bg-success-50 px-3 py-2 text-sm text-success-800 dark:bg-success-500/10 dark:text-success-300;
+}
+.ivs-chip__enlace { @apply shrink-0 text-sm font-medium text-primary-600 underline-offset-2 hover:underline dark:text-primary-400; }
+.ivs-chip__esperando { @apply flex items-center gap-3; }
+.ivs-chip__esperando-titulo { @apply text-sm font-semibold text-gray-900 dark:text-white; }
+.ivs-chip__onda {
+    @apply relative flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary-100 text-primary-700 dark:bg-primary-500/15 dark:text-primary-300;
+}
+.ivs-chip__onda::before,
+.ivs-chip__onda::after {
+    content: '';
+    @apply absolute inset-0 rounded-full border-2 border-primary-400;
+    animation: ivs-chip-onda 1.8s ease-out infinite;
+}
+.ivs-chip__onda::after { animation-delay: .9s; }
+@keyframes ivs-chip-onda {
+    from { transform: scale(1); opacity: .7; }
+    to { transform: scale(1.8); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .ivs-chip__onda::before, .ivs-chip__onda::after { animation: none; }
+}
+.ivs-chip__resultado {
+    @apply flex items-center gap-3 rounded-xl border border-gray-200 bg-white px-3 py-2.5 dark:border-white/10 dark:bg-white/5;
+}
+.ivs-chip__resultado--error {
+    @apply border-danger-200 bg-danger-50 text-sm text-danger-700 dark:border-danger-500/30 dark:bg-danger-500/10 dark:text-danger-300;
+}
+.ivs-chip__codigo { @apply font-mono text-base font-semibold tracking-wider text-gray-900 dark:text-white; }
+.ivs-chip__estado { @apply shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold; }
+.ivs-chip__estado--ok { @apply bg-success-100 text-success-700 dark:bg-success-500/15 dark:text-success-300; }
+.ivs-chip__estado--aviso { @apply bg-warning-100 text-warning-800 dark:bg-warning-500/15 dark:text-warning-300; }
+.ivs-chip__estado--gris { @apply bg-gray-100 text-gray-700 dark:bg-white/10 dark:text-gray-300; }
+.ivs-chip__nota { @apply text-xs text-gray-500 dark:text-gray-400; }
+
+/* ------------------------------------------------------------------
+ * Suavidad en toda la app: botones tipo píldora, campos y tarjetas redondeados,
+ * sombras suaves. El color sale de la paleta del panel (AdminPanelProvider).
+ * ------------------------------------------------------------------ */
+html:not(.dark) body.fi-body { background: #fbfafa; }
+html.dark body.fi-body { background: #1b1617; }
+
+.fi-header-heading,
+.fi-section-header-heading { font-weight: 600; }
+
+/* Botones */
+.fi-btn { border-radius: 9999px; padding-inline: 1.15rem; transition: background-color .15s, box-shadow .15s, transform .1s; }
+.fi-btn:active:not(:disabled) { transform: translateY(1px); }
+.fi-btn.fi-color-primary:not(.fi-outlined) { box-shadow: 0 8px 18px -12px rgb(165 72 78 / .85); }
+.dark .fi-btn.fi-color-primary:not(.fi-outlined) { box-shadow: none; }
+.fi-btn-group .fi-btn { border-radius: 0; }
+.fi-btn-group { border-radius: 9999px; overflow: hidden; }
+
+/* Campos */
+.fi-input-wrp { border-radius: .6rem; }
+.fi-input-wrp:focus-within { box-shadow: 0 0 0 3px rgb(165 72 78 / .14); }
+html:not(.dark) .fi-input-wrp { --tw-ring-color: #e9e2e1; }
+.filepond--panel-root { border-radius: .9rem; }
+html:not(.dark) .filepond--panel-root { background: #fbf6f6; border: 1.5px dashed #e3cfcd; }
+
+/* Tarjetas, tablas y asistentes */
+.fi-section,
+.fi-ta-ctn,
+.fi-sc-wizard-header,
+.fi-wi-stats-overview-stat,
+.fi-wi-chart { border-radius: 1.1rem; }
+html:not(.dark) .fi-section,
+html:not(.dark) .fi-ta-ctn,
+html:not(.dark) .fi-sc-wizard-header,
+html:not(.dark) .fi-wi-stats-overview-stat,
+html:not(.dark) .fi-wi-chart {
+    --tw-ring-color: #eee7e6;
+    box-shadow: 0 14px 34px -26px rgb(80 40 45 / .35);
+}
+html:not(.dark) .fi-section .fi-section { box-shadow: none; background: #fafafa; }
+html:not(.dark) .fi-ta-header-cell { background: #faf8f8; }
+.dark .fi-section,
+.dark .fi-ta-ctn,
+.dark .fi-sc-wizard-header { background: #241d1f; }
+.fi-badge { border-radius: 9999px; }
+
+/* Ventanas (modales) y paneles laterales */
+.fi-modal-window { border-radius: 1.25rem; }
+.fi-modal-slide-over-window { border-radius: 0; }
+html:not(.dark) .fi-modal-window { box-shadow: 0 30px 70px -30px rgb(60 25 30 / .45); }
+
+/* Notificaciones emergentes: tarjeta suave con una franja del color del estado */
+.fi-no-notification { border-radius: 1rem; overflow: hidden; }
+html:not(.dark) .fi-no-notification:not(.fi-inline) {
+    --tw-ring-color: #eee7e6;
+    box-shadow: 0 18px 40px -22px rgb(60 25 30 / .45);
+}
+.fi-no-notification.fi-status-success:not(.fi-inline) { box-shadow: inset 4px 0 0 var(--success-500), 0 18px 40px -22px rgb(60 25 30 / .45); }
+.fi-no-notification.fi-status-warning:not(.fi-inline) { box-shadow: inset 4px 0 0 var(--warning-500), 0 18px 40px -22px rgb(60 25 30 / .45); }
+.fi-no-notification.fi-status-danger:not(.fi-inline) { box-shadow: inset 4px 0 0 var(--danger-500), 0 18px 40px -22px rgb(60 25 30 / .45); }
+.fi-no-notification.fi-status-info:not(.fi-inline) { box-shadow: inset 4px 0 0 var(--info-500), 0 18px 40px -22px rgb(60 25 30 / .45); }
+.fi-no-notification-title { font-weight: 600; }
+
+/* Campanita: avisos sin leer resaltados */
+.fi-no-notification.fi-inline { box-shadow: none; border-radius: .8rem; overflow: visible; }
+html:not(.dark) .fi-no-notification-unread-ctn .fi-no-notification { background: #fbf4f4; }

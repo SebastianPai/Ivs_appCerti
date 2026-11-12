@@ -4,15 +4,18 @@ namespace App\Filament\Pages\Admin;
 
 use App\Models\SystemSetting;
 use App\Support\Correo;
+use App\Support\TextosCorreo;
 use BackedEnum;
 use App\Support\MarcaCertificado;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Radio;
+use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Filament\Schemas\Components\Fieldset;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
@@ -54,6 +57,7 @@ class SystemSettings extends Page
 
         $data = [
             'chip_required' => SystemSetting::enabled('chip_required'),
+            'chip_permitir_inactivo' => SystemSetting::enabled('chip_permitir_inactivo'),
             'checklist_prellenado' => SystemSetting::enabled('checklist_prellenado'),
             'sicom_consulta_evaluacion' => SystemSetting::enabled('sicom_consulta_evaluacion'),
             'sicom_consulta_diagnostico' => SystemSetting::enabledOr('sicom_consulta_diagnostico', true),
@@ -63,8 +67,13 @@ class SystemSettings extends Page
             'registro_taller_required' => SystemSetting::enabled('registro_taller_required'),
             'servicios_por_taller' => SystemSetting::enabled('servicios_por_taller'),
             'restrict_pc_access' => SystemSetting::enabled('restrict_pc_access'),
+            'restriccion_horario_inspector' => SystemSetting::enabled('restriccion_horario_inspector'),
+            ...\App\Support\HorarioEvaluador::horario(),
             'correos' => SystemSetting::enabledOr('correos', true),
             'correos_tipos' => array_values(array_diff(array_keys(Correo::TIPOS), $desactivados)),
+            'correos_limite_hora' => TextosCorreo::limiteHora(),
+            'correos_pie' => TextosCorreo::pie(),
+            'correos_textos' => TextosCorreo::textos(),
             'vigencia_meses' => $vigencia['meses'],
             'vigencia_dias_aviso' => $vigencia['dias_aviso'],
             'exigir_2fa' => SystemSetting::enabled('exigir_2fa'),
@@ -109,7 +118,10 @@ class SystemSettings extends Page
                     ->schema([
                         Toggle::make('chip_required')
                             ->label('Obligar lectura de chip')
-                            ->helperText('Si está activo, el evaluador no puede pasar al checklist sin leer un chip válido y activo.'),
+                            ->helperText('Si está activo, el evaluador no puede pasar al checklist sin leer un chip válido.'),
+                        Toggle::make('chip_permitir_inactivo')
+                            ->label('Permitir chips inactivos')
+                            ->helperText('Encendido: se puede continuar con chips activos e inactivos (el lector avisa cuando el chip está inactivo). Apagado: un servicio con chip nuevo solo acepta chips activos. Un chip asociado a otro vehículo nunca se acepta.'),
                         Toggle::make('sicom_consulta_evaluacion')
                             ->label('Permitir consulta a sicom inspector y taller')
                             ->helperText('Encendido: al crear la solicitud se busca la placa en SICOM, y el chip se contrasta con SICOM (una revisión exige que exista; un chip nuevo, que no exista). Apagado: no se consulta y se acepta el chip leído.'),
@@ -162,6 +174,65 @@ class SystemSettings extends Page
                             ->options(Correo::TIPOS)
                             ->bulkToggleable()
                             ->visible(fn (Get $get) => (bool) $get('correos')),
+                        TextInput::make('correos_limite_hora')
+                            ->label('Máximo de correos del mismo tipo por destinatario, cada hora')
+                            ->helperText('Evita el spam cuando un mismo correo recibe muchas solicitudes seguidas (p. ej. un taller que crea 100). Lo que pase del límite no sale por correo, pero sí aparece en la campanita. El correo con el certificado siempre se envía. 0 = sin límite.')
+                            ->numeric()
+                            ->integer()
+                            ->minValue(0)
+                            ->maxValue(1000)
+                            ->required(),
+                        Textarea::make('correos_pie')
+                            ->label('Pie de los correos (firma y contacto)')
+                            ->placeholder("IVS Certificaciones · Calle 8 #47-136 Nueva Tequendama, Cali
+(602) 308 7609 · servicioalcliente@ivscertificaciones.com")
+                            ->helperText('Vacío = el contacto de siempre.')
+                            ->rows(3)
+                            ->maxLength(500),
+                        \Filament\Schemas\Components\Actions::make([
+                            \Filament\Actions\Action::make('correosPrueba')
+                                ->label('Enviar correos de prueba')
+                                ->icon('heroicon-o-paper-airplane')
+                                ->color('gray')
+                                ->modalHeading('Enviar correos de prueba')
+                                ->modalDescription('Llega un correo de cada tipo, con datos de ejemplo y los textos guardados (guarde antes sus cambios). Cada uno trae en el asunto su número y nombre, y arriba qué hace y a quién le llega.')
+                                ->modalSubmitActionLabel('Enviar')
+                                ->schema([
+                                    TextInput::make('email')->label('Enviar a')->email()->required()->default(fn () => Auth::user()?->email),
+                                ])
+                                ->action(function (array $data) {
+                                    try {
+                                        $n = \App\Http\Controllers\VistaPreviaCorreosController::enviarPruebas($data['email']);
+                                    } catch (\Throwable $e) {
+                                        Notification::make()->title('No se pudieron enviar')->body($e->getMessage())->danger()->persistent()->send();
+
+                                        return;
+                                    }
+
+                                    Notification::make()->title("{$n} correos de prueba enviados")->body("Revise la bandeja de {$data['email']} (y la de spam).")->success()->send();
+                                }),
+                        ]),
+                    ]),
+
+                Section::make('Textos de los correos')
+                    ->icon('heroicon-o-pencil-square')
+                    ->description(new \Illuminate\Support\HtmlString(e('Asunto y mensaje de cada correo. Puede usar {nombre} y {placa}. Lo que deje vacío usa el texto de siempre. El mensaje aparece destacado al inicio del correo.')
+                        .' <a href="'.e(route('correos.vista-previa')).'" target="_blank" rel="noopener" class="font-semibold text-primary-600 underline dark:text-primary-400">Ver cómo quedan los correos</a> (guarde antes los cambios).'))
+                    ->collapsible()
+                    ->collapsed()
+                    ->schema([
+                        ...collect(TextosCorreo::CUENTA)->map(fn (array $texto, string $tipo) => Fieldset::make($texto['nombre'])
+                            ->columns(1)
+                            ->schema([
+                                TextInput::make("correos_textos.{$tipo}.asunto")->label('Asunto')->placeholder($texto['asunto'])->maxLength(150),
+                                Textarea::make("correos_textos.{$tipo}.mensaje")->label('Mensaje')->placeholder($texto['mensaje'])->rows(3)->maxLength(1000),
+                            ]))->values()->all(),
+                        ...collect(Correo::TIPOS)->map(fn (string $nombre, string $tipo) => Fieldset::make($nombre)
+                            ->columns(1)
+                            ->schema([
+                                TextInput::make("correos_textos.{$tipo}.asunto")->label('Asunto')->placeholder('El de siempre (incluye la placa)')->maxLength(150),
+                                Textarea::make("correos_textos.{$tipo}.mensaje")->label('Mensaje adicional')->placeholder('Opcional')->rows(2)->maxLength(1000),
+                            ]))->values()->all(),
                     ]),
 
                 Section::make('Vigencia de los certificados')
@@ -254,6 +325,28 @@ class SystemSettings extends Page
                             ->visible(fn (Get $get) => (bool) $get('restrict_pc_access'))
                             ->schema($porRol),
                     ]),
+
+                // Como «Restringir acceso inspector» de la plataforma anterior. Allá las horas venían
+                // fijas en el servidor; aquí se eligen.
+                Section::make('Horario del evaluador')
+                    ->icon('heroicon-o-clock')
+                    ->schema([
+                        Toggle::make('restriccion_horario_inspector')
+                            ->label('Restringir acceso inspector')
+                            ->helperText('Fuera del horario, el evaluador no puede abrir solicitudes desde Solicitudes Abiertas. El resto del menú sigue disponible.')
+                            ->live(),
+                        Grid::make(['default' => 1, 'md' => 3])
+                            ->visible(fn (Get $get) => (bool) $get('restriccion_horario_inspector'))
+                            ->schema([
+                                \Filament\Forms\Components\TimePicker::make('horario_desde')->label('Desde')->seconds(false)->required(),
+                                \Filament\Forms\Components\TimePicker::make('horario_hasta')->label('Hasta')->seconds(false)->required()->after('horario_desde'),
+                                CheckboxList::make('horario_dias')
+                                    ->label('Días')
+                                    ->options(\App\Support\HorarioEvaluador::DIAS)
+                                    ->columns(4)
+                                    ->required(),
+                            ]),
+                    ]),
             ])
             ->statePath('data');
     }
@@ -263,6 +356,7 @@ class SystemSettings extends Page
         $data = $this->form->getState();
 
         SystemSetting::put('chip_required', (bool) $data['chip_required']);
+        SystemSetting::put('chip_permitir_inactivo', (bool) $data['chip_permitir_inactivo']);
         SystemSetting::put('checklist_prellenado', (bool) $data['checklist_prellenado']);
         SystemSetting::put('sicom_consulta_evaluacion', (bool) $data['sicom_consulta_evaluacion']);
         SystemSetting::put('sicom_consulta_diagnostico', (bool) $data['sicom_consulta_diagnostico']);
@@ -282,11 +376,26 @@ class SystemSettings extends Page
 
         SystemSetting::put('restrict_pc_access', (bool) $data['restrict_pc_access'], ['roles' => $roles]);
 
+        // Con el interruptor apagado los campos no llegan: se conserva el horario que había
+        $horario = \App\Support\HorarioEvaluador::horario();
+        SystemSetting::put('restriccion_horario_inspector', (bool) $data['restriccion_horario_inspector'], [
+            'desde' => substr($data['horario_desde'] ?? $horario['horario_desde'], 0, 5),
+            'hasta' => substr($data['horario_hasta'] ?? $horario['horario_hasta'], 0, 5),
+            'dias' => array_values(array_map('intval', $data['horario_dias'] ?? $horario['horario_dias'])),
+        ]);
+
         // Las listas ocultas (interruptor apagado) no llegan en $data: se conserva lo que había
         SystemSetting::put('correos', (bool) $data['correos'], [
             'desactivados' => isset($data['correos_tipos'])
                 ? array_values(array_diff(array_keys(Correo::TIPOS), $data['correos_tipos']))
                 : (SystemSetting::meta('correos', 'desactivados') ?? []),
+            'limite_hora' => max(0, (int) ($data['correos_limite_hora'] ?? TextosCorreo::LIMITE_HORA_POR_DEFECTO)),
+            'pie' => filled($data['correos_pie'] ?? null) ? trim($data['correos_pie']) : null,
+            // Solo se guardan los textos escritos; lo vacío vuelve al texto de siempre
+            'textos' => collect($data['correos_textos'] ?? [])
+                ->map(fn ($texto) => array_filter(array_map(fn ($v) => is_string($v) ? trim($v) : null, (array) $texto), 'filled'))
+                ->filter()
+                ->all(),
         ]);
 
         SystemSetting::put('vigencia', true, [
