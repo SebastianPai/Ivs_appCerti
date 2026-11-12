@@ -116,13 +116,42 @@ class ChipValidationService
 
         // Inactivo = ya se gastó en otra solicitud o el admin lo retiró. El de esta misma solicitud
         // sigue valiendo (reenvío tras una devolución) y una revisión usa el chip que ya trae el vehículo.
-        if ($chipNuevo && ! $chip->activo && ! $chip->verificaciones()->where('solicitud_id', $solicitud->id)->exists()) {
+        // Con «Permitir chips inactivos» (Configuración General) se continúa con chips activos e inactivos;
+        // las reglas de arriba (otro vehículo, chip ya usado en un servicio de chip nuevo) siguen aplicando.
+        if ($chipNuevo && ! $chip->activo && ! self::permiteInactivos() && ! $chip->verificaciones()->where('solicitud_id', $solicitud->id)->exists()) {
             throw ValidationException::withMessages([
                 $campo => "El chip «{$codigo}» está inactivo.",
             ]);
         }
 
         return $chip;
+    }
+
+    /** «Permitir chips inactivos» en Configuración General (apagado por defecto, como la plataforma anterior). */
+    public static function permiteInactivos(): bool
+    {
+        return SystemSetting::enabled('chip_permitir_inactivo');
+    }
+
+    /**
+     * Estado de un chip para mostrarlo en el lector apenas se lee (no valida la solicitud: eso lo hace validar()).
+     *
+     * @return array{codigo: string, registrado: bool, activo: bool|null, usos: int, vehiculo: string|null, permite_inactivos: bool}
+     */
+    public static function estado(string $codigo): array
+    {
+        $codigo = (string) self::normalizar($codigo);
+        $chip = Chip::whereRaw('UPPER(codigo) = ?', [$codigo])->first();
+        $ultima = $chip?->verificaciones()->with('solicitud:id,vehicle_identification')->latest('id')->first();
+
+        return [
+            'codigo' => $codigo,
+            'registrado' => $chip !== null,
+            'activo' => $chip?->activo,
+            'usos' => $chip ? $chip->verificaciones()->count() : 0,
+            'vehiculo' => $ultima?->solicitud?->vehicle_identification,
+            'permite_inactivos' => self::permiteInactivos(),
+        ];
     }
 
     /** Registro del chip en SICOM, null si no existe y false si no se pudo consultar. */

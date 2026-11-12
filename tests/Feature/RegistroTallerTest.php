@@ -9,7 +9,7 @@ use App\Filament\Resources\Users\Pages\ListUsers;
 use App\Filament\Widgets\RegistrosTallerPendientes;
 use App\Models\SystemSetting;
 use App\Models\User;
-use Filament\Auth\Notifications\VerifyEmail;
+use App\Notifications\Cuenta\BienvenidaConfirmarCorreo;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
@@ -131,7 +131,8 @@ class RegistroTallerTest extends TestCase
             ->assertHasNoFormErrors();
 
         $nuevo = User::where('email', 'nuevo@taller.test')->sole();
-        Notification::assertSentTo($nuevo, VerifyEmail::class);
+        // Es el correo de verificación de Filament con la bienvenida de IVS (ver AppServiceProvider)
+        Notification::assertSentTo($nuevo, BienvenidaConfirmarCorreo::class);
         $this->assertFalse($nuevo->hasVerifiedEmail());
         $this->assertTrue($nuevo->esTaller());
 

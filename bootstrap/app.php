@@ -16,6 +16,9 @@ return Application::configure(basePath: dirname(__DIR__))
             'restrict.access' => RestrictAccessMiddleware::class,
         ]);
 
+        // Cabeceras de seguridad en todas las páginas (ver el middleware)
+        $middleware->web(append: [\App\Http\Middleware\CabecerasSeguridad::class]);
+
         // No hay ruta "login" de Laravel: el login es el de Filament
         $middleware->redirectGuestsTo(fn () => route('filament.admin.auth.login'));
     })

@@ -292,6 +292,12 @@ class User extends Authenticatable implements FilamentUser, HasAppAuthentication
     }
 
     // Evaluador → revisores que auditan su trabajo
+    /** Usuarios que pueden recibir avisos: los que no están desactivados (activo en null cuenta como activo). */
+    public function scopeActivos($query)
+    {
+        return $query->where(fn ($q) => $q->where('activo', true)->orWhereNull('activo'));
+    }
+
     public function revisores()
     {
         return $this->belongsToMany(User::class, 'evaluador_revisor', 'evaluador_id', 'revisor_id')->withTimestamps();

@@ -1,0 +1,24 @@
+<svg viewBox="0 150 200 170" xmlns="http://www.w3.org/2000/svg">
+    <polygon points="4,190 16,184 28,190 16,196" fill="#c98b8d" />
+    <polygon points="176,200 186,195 196,200 186,205" fill="#e8c8a0" />
+    <polygon points="160,300 170,295 180,300 170,305" fill="#e9cfcc" />
+    <polygon points="150,165 158,161 166,165 158,169" fill="#e9cfcc" />
+    <ellipse cx="102" cy="268" rx="82" ry="34" fill="#e7d2cf" opacity=".7" />
+    <polygon points="30,218 125.3,273 172.9,245.5 77.6,190.5" fill="#e4b3b2" />
+    <polygon points="30,250 125.3,305 125.3,273 30,218" fill="#b9787b" />
+    <polygon points="125.3,305 172.9,277.5 172.9,245.5 125.3,273" fill="#94595e" />
+    <polygon points="58.6,205 101.5,229.8 139.5,207.8 96.6,183" fill="#f2dedb" />
+    <polygon points="58.6,229 101.5,253.8 101.5,229.8 58.6,205" fill="#f7ebe9" />
+    <polygon points="101.5,253.8 139.5,231.8 139.5,207.8 101.5,229.8" fill="#dcbcbb" />
+    <line x1="80" y1="241.4" x2="80" y2="217.4" stroke="#b9787b" stroke-width="2.5" />
+    <polygon points="131,293 141,287 141,281 131,287" fill="#e8c8a0" />
+    <polygon points="160,276 168,271 168,265 160,270" fill="#e8c8a0" />
+    <g fill="#3f3236">
+        <circle r="12" transform="matrix(.866 .5 0 1 52 254)" />
+        <circle r="12" transform="matrix(.866 .5 0 1 104 284)" />
+    </g>
+    <g fill="#d9c3c1">
+        <circle r="5" transform="matrix(.866 .5 0 1 52 254)" />
+        <circle r="5" transform="matrix(.866 .5 0 1 104 284)" />
+    </g>
+</svg>

@@ -62,14 +62,16 @@ class ChipResource extends Resource
                 ->dehydrateStateUsing(fn (?string $state) => $state ? strtoupper(trim($state)) : null),
             // Mismo lector que usa el evaluador; escribe en el campo de este formulario
             View::make('filament.evaluador.solicituds.chip-reader')
-                ->viewData(['campo' => 'mountedActions.0.data.codigo', 'entrada' => 'ivs-chip-nuevo'])
+                ->viewData(['campo' => 'mountedActions.0.data.codigo', 'entrada' => 'ivs-chip-nuevo', 'notas' => false])
                 ->visibleOn('create'),
             TextInput::make('descripcion')
                 ->label('Descripción')
                 ->maxLength(120),
             Toggle::make('activo')
                 ->label('Activo')
-                ->helperText('Un chip inactivo no se puede asignar a una solicitud.')
+                ->helperText(fn () => \App\Services\ChipValidationService::permiteInactivos()
+                    ? 'La configuración actual permite usar chips inactivos en las solicitudes.'
+                    : 'Un chip inactivo no se puede asignar a una solicitud con chip nuevo.')
                 ->default(true),
         ]);
     }

@@ -37,6 +37,20 @@ Route::get('/verificar/{codigo}', function (Request $request, string $codigo) {
     return response()->view('verificar', ['solicitud' => $solicitud], $solicitud ? 200 : 404);
 })->middleware('throttle:30,1')->name('certificado.verificar');
 
+// Estado de un chip recién leído, para mostrarlo en el lector (activo, inactivo, no registrado).
+// Solo evaluador y admin, que son quienes leen chips.
+Route::get('/chip/estado/{codigo}', function (string $codigo) {
+    abort_unless((bool) Auth::user()?->hasAnyRole(['evaluador', 'admin']), 403);
+    abort_unless((bool) preg_match('/^[0-9A-Za-z]{1,100}$/', $codigo), 422);
+
+    return response()->json(App\Services\ChipValidationService::estado($codigo));
+})->middleware(['auth', 'restrict.access', 'throttle:60,1'])->name('chip.estado');
+
+// Vista previa de los correos para el admin (no envía nada)
+Route::get('/correos/vista-previa', App\Http\Controllers\VistaPreviaCorreosController::class)
+    ->middleware(['auth', 'restrict.access'])
+    ->name('correos.vista-previa');
+
 // Inspección sin conexión del evaluador (ver CampoController)
 Route::middleware(['auth', 'restrict.access'])->prefix('campo')->name('campo.')->group(function () {
     Route::get('/', [CampoController::class, 'index'])->name('index');

@@ -12,6 +12,7 @@ class SystemSettingSeeder extends Seeder
         // firstOrCreate: no pisa la configuración que el admin ya haya cambiado
         // Mismos valores que tiene hoy la plataforma anterior en Configuración General
         SystemSetting::firstOrCreate(['key' => 'chip_required'], ['enabled' => true, 'meta' => null]);
+        SystemSetting::firstOrCreate(['key' => 'chip_permitir_inactivo'], ['enabled' => false, 'meta' => null]);
         SystemSetting::firstOrCreate(['key' => 'checklist_prellenado'], ['enabled' => true, 'meta' => null]);
         SystemSetting::firstOrCreate(['key' => 'sicom_consulta_evaluacion'], ['enabled' => false, 'meta' => null]);
         SystemSetting::firstOrCreate(['key' => 'sicom_consulta_diagnostico'], ['enabled' => true, 'meta' => null]);
