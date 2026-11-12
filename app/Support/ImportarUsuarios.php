@@ -24,11 +24,26 @@ use Illuminate\Support\Str;
  */
 class ImportarUsuarios
 {
-    public const PASSWORD_INICIAL = 'ivscerti2026';
+    /**
+     * Contraseña con la que entran los usuarios importados. Va en el .env (PASSWORD_INICIAL_USUARIOS)
+     * y nunca en el código: el repositorio es público.
+     */
+    public static function passwordInicial(): string
+    {
+        $password = (string) config('auth.password_inicial');
+
+        if (strlen($password) < 8) {
+            throw new \RuntimeException('Falta PASSWORD_INICIAL_USUARIOS en el .env del servidor (mínimo 8 caracteres).');
+        }
+
+        return $password;
+    }
 
     /** @return array{creados: int, actualizados: int, omitidos: list<string>} */
     public static function desde(array $archivo): array
     {
+        self::passwordInicial(); // falla antes de tocar nada si no está configurada
+
         $usuarios = $archivo['usuarios'] ?? null;
         if (! is_array($usuarios) || $usuarios === []) {
             throw new \InvalidArgumentException('El archivo no trae usuarios de la plataforma anterior.');
@@ -75,7 +90,7 @@ class ImportarUsuarios
                 $user->activo = $porCorreo ? ($user->activo || ($u['activo'] ?? true)) : (bool) ($u['activo'] ?? true);
 
                 if ($contrasenaInicial) {
-                    $user->password = self::PASSWORD_INICIAL;
+                    $user->password = self::passwordInicial();
                     $user->debe_cambiar_password = true;
                 }
 

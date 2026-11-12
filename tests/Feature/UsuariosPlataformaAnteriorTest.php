@@ -49,7 +49,7 @@ class UsuariosPlataformaAnteriorTest extends TestCase
         $this->assertSame('TALLER UNO SAS', $uno->name);
         $this->assertSame('taller.uno@example.com', $uno->email);
         $this->assertTrue($uno->debe_cambiar_password);
-        $this->assertTrue(Hash::check(ImportarUsuarios::PASSWORD_INICIAL, $uno->password));
+        $this->assertTrue(Hash::check(ImportarUsuarios::passwordInicial(), $uno->password));
         $this->assertSame('Bogotá D.C.', $uno->city);
         $this->assertSame('Calle 1 # 2-3', $uno->direccion);
         $this->assertSame('2027-01-21', $uno->fecha_vencimiento->toDateString());
@@ -76,7 +76,7 @@ class UsuariosPlataformaAnteriorTest extends TestCase
 
     public function test_quien_entra_con_la_contrasena_inicial_debe_cambiarla(): void
     {
-        $user = $this->usuario('evaluador', ['password' => ImportarUsuarios::PASSWORD_INICIAL]);
+        $user = $this->usuario('evaluador', ['password' => ImportarUsuarios::passwordInicial()]);
         $user->forceFill(['debe_cambiar_password' => true])->save();
         $this->actingAs($user);
 
@@ -85,7 +85,7 @@ class UsuariosPlataformaAnteriorTest extends TestCase
 
         // La misma contraseña inicial no sirve
         Livewire::test(CambiarPassword::class)
-            ->fillForm(['password' => ImportarUsuarios::PASSWORD_INICIAL, 'password_confirmation' => ImportarUsuarios::PASSWORD_INICIAL])
+            ->fillForm(['password' => ImportarUsuarios::passwordInicial(), 'password_confirmation' => ImportarUsuarios::passwordInicial()])
             ->call('guardar')
             ->assertHasErrors(['data.password']);
 

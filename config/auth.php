@@ -90,6 +90,9 @@ return [
     |
     */
 
+    // Contraseña de los usuarios importados de la plataforma anterior (ver App\Support\ImportarUsuarios)
+    'password_inicial' => env('PASSWORD_INICIAL_USUARIOS'),
+
     'passwords' => [
         'users' => [
             'provider' => 'users',

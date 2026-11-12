@@ -27,7 +27,7 @@ class ListUsers extends ListRecords
                 ->color('gray')
                 ->modalHeading('Importar usuarios de la plataforma anterior')
                 ->modalDescription('Crea o actualiza los usuarios con sus roles, accesos, servicios, registro, inventario y talleres. '
-                    .'Los nuevos entran con la contraseña inicial '.ImportarUsuarios::PASSWORD_INICIAL.' y deben cambiarla al entrar. '
+                    .'Los nuevos entran con la contraseña inicial '.(config('auth.password_inicial') ?: '(falta configurarla en el .env)').' y deben cambiarla al entrar. '
                     .'Puede repetirse sin duplicar a nadie.')
                 ->modalSubmitActionLabel('Importar')
                 ->schema([
