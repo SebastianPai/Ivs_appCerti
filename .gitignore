@@ -27,3 +27,5 @@ Thumbs.db
 /_ide_helper.php
 /storage/app/key/
 *-firebase-adminsdk-*.json
+/storage/credenciales/
+*firebase*.json
