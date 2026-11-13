@@ -71,13 +71,6 @@ return [
             'report' => false,
         ],
 
-        'firebase' => [
-            'driver' => 'gcs',
-            'key_file' => env('FIREBASE_CREDENTIALS'), // Ruta al archivo .json de tu cuenta de servicio
-            'bucket' => env('FIREBASE_STORAGE_BUCKET'),
-            'visibility' => 'public',
-        ],
-
     ],
 
     /*

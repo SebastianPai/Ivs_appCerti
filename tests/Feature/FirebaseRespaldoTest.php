@@ -21,6 +21,16 @@ class FirebaseRespaldoTest extends TestCase
         $this->withoutDefer();
     }
 
+    public function test_el_disco_firebase_lee_la_llave_desde_la_ruta_del_archivo(): void
+    {
+        // Un disco «firebase» repetido con 'key_file' pasaba la ruta donde la librería espera el JSON
+        $disco = require base_path('config/filesystems.php');
+
+        $this->assertSame('gcs', $disco['disks']['firebase']['driver']);
+        $this->assertArrayHasKey('key_file_path', $disco['disks']['firebase']);
+        $this->assertArrayNotHasKey('key_file', $disco['disks']['firebase']);
+    }
+
     public function test_las_carpetas_en_firebase_van_por_solicitud(): void
     {
         $this->assertSame('solicitudes/15/documentos/a.pdf', Nube::rutaRemota('solicitudes/15/adjuntos/a.pdf'));
