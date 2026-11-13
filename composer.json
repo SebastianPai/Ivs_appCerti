@@ -15,7 +15,8 @@
         "kreait/firebase-php": "^7.24",
         "kreait/laravel-firebase": "^6.2",
         "laravel/framework": "^12.0",
-        "laravel/tinker": "^2.10.1"
+        "laravel/tinker": "^2.10.1",
+        "league/flysystem-google-cloud-storage": "^3.0"
     },
     "require-dev": {
         "barryvdh/laravel-ide-helper": "^3.6",

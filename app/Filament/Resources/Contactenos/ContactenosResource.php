@@ -19,6 +19,8 @@ use Illuminate\Support\Facades\Auth;
  */
 class ContactenosResource extends Resource
 {
+    use \App\Filament\Resources\Concerns\RespetaPermisosPropios;
+
     protected static ?string $model = MensajeContacto::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedChatBubbleLeftRight;

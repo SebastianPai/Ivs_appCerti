@@ -24,6 +24,8 @@ use Illuminate\Support\Facades\Auth;
  */
 class ChipResource extends Resource
 {
+    use \App\Filament\Resources\Concerns\RespetaPermisosPropios;
+
     protected static ?string $model = Chip::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCpuChip;

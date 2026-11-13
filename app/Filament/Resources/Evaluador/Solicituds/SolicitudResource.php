@@ -23,6 +23,8 @@ use Illuminate\Support\Facades\Auth;
  */
 class SolicitudResource extends Resource
 {
+    use \App\Filament\Resources\Concerns\RespetaPermisosPropios;
+
     protected static ?string $model = Solicitud::class;
 
     protected static ?string $slug = 'evaluacion/solicitudes';

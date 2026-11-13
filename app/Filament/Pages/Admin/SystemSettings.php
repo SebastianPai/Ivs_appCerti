@@ -57,6 +57,7 @@ class SystemSettings extends Page
 
         $data = [
             'chip_required' => SystemSetting::enabled('chip_required'),
+            'copia_firebase' => SystemSetting::enabledOr('copia_firebase', true),
             'chip_permitir_inactivo' => SystemSetting::enabled('chip_permitir_inactivo'),
             'checklist_prellenado' => SystemSetting::enabled('checklist_prellenado'),
             'sicom_consulta_evaluacion' => SystemSetting::enabled('sicom_consulta_evaluacion'),
@@ -299,6 +300,79 @@ class SystemSettings extends Page
                         ]),
                     ]),
 
+                Section::make('Almacenamiento y respaldos')
+                    ->icon('heroicon-o-cloud-arrow-up')
+                    ->description('Como en la plataforma anterior: cada documento y foto se guarda en el servidor y una copia en Firebase Cloud Storage, en una carpeta por solicitud. La base de datos se respalda allí una vez al día.')
+                    ->schema([
+                        \Filament\Schemas\Components\Text::make(fn () => \App\Support\Nube::configurada()
+                            ? 'Firebase conectado: bucket '.config('filesystems.disks.firebase.bucket').'.'
+                            : 'Firebase sin configurar: faltan FIREBASE_STORAGE_BUCKET y FIREBASE_CREDENTIALS en el .env del servidor. Mientras tanto los archivos quedan solo en el servidor.')
+                            ->color(fn () => \App\Support\Nube::configurada() ? 'success' : 'warning'),
+                        Toggle::make('copia_firebase')
+                            ->label('Guardar una copia de los archivos en Firebase')
+                            ->helperText('Carpetas: solicitudes/{n.º}/documentos, solicitudes/{n.º}/fotos, talleres/camara-comercio y respaldos/base-de-datos. Si un archivo se pierde en el servidor, la app lo abre desde Firebase.')
+                            ->disabled(fn () => ! \App\Support\Nube::configurada()),
+                        \Filament\Schemas\Components\Text::make(function () {
+                            if (! \App\Support\Nube::activa()) {
+                                return '';
+                            }
+
+                            try {
+                                $lista = \App\Support\RespaldoBase::lista();
+                            } catch (\Throwable $e) {
+                                return 'No se pudo leer Firebase: '.$e->getMessage();
+                            }
+
+                            return $lista
+                                ? 'Último respaldo de la base: '.$lista[0]['fecha']->format('d/m/Y h:i a').' · '.count($lista).' guardados (se conservan '.\App\Support\RespaldoBase::DIAS.' días).'
+                                : 'Aún no hay respaldos de la base.';
+                        }),
+                        \Filament\Schemas\Components\Actions::make([
+                            \Filament\Actions\Action::make('sincronizarFirebase')
+                                ->label('Copiar archivos pendientes')
+                                ->icon('heroicon-o-arrow-path')
+                                ->color('gray')
+                                ->visible(fn () => \App\Support\Nube::activa())
+                                ->action(function () {
+                                    $r = \App\Support\Nube::sincronizar();
+
+                                    Notification::make()
+                                        ->title("{$r['copiados']} archivo(s) copiados a Firebase")
+                                        ->body(($r['pendientes'] ? "Quedan {$r['pendientes']}: pulse de nuevo para seguir. " : 'Todo está copiado. ').($r['errores'] ? "{$r['errores']} con error (ver el log)." : ''))
+                                        ->color($r['errores'] ? 'warning' : 'success')
+                                        ->send();
+                                }),
+                            \Filament\Actions\Action::make('respaldarBase')
+                                ->label('Respaldar la base ahora')
+                                ->icon('heroicon-o-circle-stack')
+                                ->color('gray')
+                                ->visible(fn () => \App\Support\Nube::activa())
+                                ->action(function () {
+                                    try {
+                                        $ruta = \App\Support\RespaldoBase::subir();
+                                    } catch (\Throwable $e) {
+                                        Notification::make()->title('No se pudo respaldar')->body($e->getMessage())->danger()->persistent()->send();
+
+                                        return;
+                                    }
+
+                                    Notification::make()->title('Respaldo guardado en Firebase')->body($ruta)->success()->send();
+                                }),
+                            \Filament\Actions\Action::make('descargarRespaldo')
+                                ->label('Descargar un respaldo')
+                                ->icon('heroicon-o-arrow-down-tray')
+                                ->color('gray')
+                                ->visible(fn () => \App\Support\Nube::activa())
+                                ->schema([
+                                    \Filament\Forms\Components\Select::make('ruta')
+                                        ->label('Respaldo')
+                                        ->options(fn () => collect(\App\Support\RespaldoBase::lista())->mapWithKeys(fn ($r) => [$r['ruta'] => $r['fecha']->format('d/m/Y h:i a').' · '.\Illuminate\Support\Number::fileSize($r['tamano'])]))
+                                        ->required(),
+                                ])
+                                ->action(fn (array $data) => redirect()->away(\Illuminate\Support\Facades\Storage::disk(\App\Support\Nube::DISCO)->temporaryUrl($data['ruta'], now()->addMinutes(5)))),
+                        ]),
+                    ]),
+
                 Section::make('Seguridad')
                     ->icon('heroicon-o-lock-closed')
                     ->description('Cada usuario puede activar la verificación en dos pasos desde su perfil (menú del usuario → Perfil).')
@@ -356,6 +430,8 @@ class SystemSettings extends Page
         $data = $this->form->getState();
 
         SystemSetting::put('chip_required', (bool) $data['chip_required']);
+        // Sin credenciales el interruptor está deshabilitado y no viaja en el formulario
+        SystemSetting::put('copia_firebase', (bool) ($data['copia_firebase'] ?? SystemSetting::enabledOr('copia_firebase', true)));
         SystemSetting::put('chip_permitir_inactivo', (bool) $data['chip_permitir_inactivo']);
         SystemSetting::put('checklist_prellenado', (bool) $data['checklist_prellenado']);
         SystemSetting::put('sicom_consulta_evaluacion', (bool) $data['sicom_consulta_evaluacion']);

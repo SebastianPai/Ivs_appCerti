@@ -113,6 +113,10 @@ jobs:
           "$PHP" artisan migrate --force
           "$PHP" artisan optimize:clear
           "$PHP" artisan filament:optimize-clear || true
+          # Cachés de configuración, rutas, eventos, vistas, íconos y componentes de Filament:
+          # cada página carga sin recompilarlos. Ojo: un cambio en el .env solo se lee tras otra
+          # publicación (o volviendo a correr este flujo desde la pestaña Actions).
+          "$PHP" artisan optimize
           "$PHP" artisan up
           REMOTO
 

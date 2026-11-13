@@ -19,6 +19,8 @@ use Illuminate\Support\Facades\Auth;
 
 class SolicitudRevisorResource extends Resource
 {
+    use \App\Filament\Resources\Concerns\RespetaPermisosPropios;
+
     protected static ?string $model = Solicitud::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedShieldCheck;

@@ -18,6 +18,8 @@ use Filament\Tables\Table;
 
 class ServiceTypeResource extends Resource
 {
+    use \App\Filament\Resources\Concerns\RespetaPermisosPropios;
+
     protected static ?string $model = ServiceType::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedTag;

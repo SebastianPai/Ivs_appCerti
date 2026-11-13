@@ -28,6 +28,26 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // Disco «gcs»: Firebase Cloud Storage. Los buckets de Firebase usan acceso uniforme, así que
+        // no se manejan permisos por archivo (el acceso lo da la cuenta de servicio).
+        Storage::extend('gcs', function ($app, array $config) {
+            $cliente = new \Google\Cloud\Storage\StorageClient(array_filter([
+                'keyFilePath' => $config['key_file_path'] ?? null,
+                'keyFile' => $config['key_file'] ?? null,
+            ]));
+            $adaptador = new \League\Flysystem\GoogleCloudStorage\GoogleCloudStorageAdapter(
+                $cliente->bucket($config['bucket']),
+                $config['prefix'] ?? '',
+                new \League\Flysystem\GoogleCloudStorage\UniformBucketLevelAccessVisibility(),
+            );
+
+            $disco = new \Illuminate\Filesystem\FilesystemAdapter(new \League\Flysystem\Filesystem($adaptador, $config), $adaptador, $config);
+
+            // Enlaces firmados y temporales (respaldos y archivos que faltan en el servidor)
+            $disco->buildTemporaryUrlsUsing(fn (string $ruta, \DateTimeInterface $vence, array $opciones = []) => $adaptador->temporaryUrl($ruta, $vence, new \League\Flysystem\Config($opciones)));
+
+            return $disco;
+        });
         // SMTP: validar el certificado del servidor con la cadena de MAIL_CAFILE (ver config/mail.php)
         $this->callAfterResolving('mail.manager', function (\Illuminate\Mail\MailManager $correo) {
             $cafile = config('mail.mailers.smtp.cafile');

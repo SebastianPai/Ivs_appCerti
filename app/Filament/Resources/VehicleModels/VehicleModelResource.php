@@ -23,6 +23,8 @@ use Illuminate\Support\Facades\Auth;
  */
 class VehicleModelResource extends Resource
 {
+    use \App\Filament\Resources\Concerns\RespetaPermisosPropios;
+
     protected static ?string $model = VehicleModel::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedTruck;

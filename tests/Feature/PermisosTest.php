@@ -136,4 +136,32 @@ class PermisosTest extends TestCase
         $this->assertFalse(\App\Filament\Resources\Users\UserResource::canDelete($admin));
         $this->assertTrue(\App\Filament\Resources\Users\UserResource::canDelete($this->usuario('cliente')));
     }
+
+    /**
+     * Las pantallas de Filament deben respetar los canEdit()/canView()/... de cada recurso, no solo
+     * las policies: una actualización de Filament dejó de consultarlos (ver RespetaPermisosPropios).
+     */
+    public function test_las_pantallas_respetan_los_permisos_de_cada_recurso(): void
+    {
+        $taller = $this->usuario("cliente");
+        $enRevision = $this->solicitud($taller, ["estado" => EstadoSolicitud::Evaluada->value]);
+        $aprobada = $this->solicitud($taller, ["estado" => EstadoSolicitud::Aprobada->value, "codigo" => "IVS-2026-000777", "fecha_aprobacion" => now(), "vehicle_identification" => "APR777"]);
+        $this->actingAs($taller);
+
+        $this->get("/ivs/solicituds/{$enRevision->id}/edit")->assertForbidden();
+        $this->get("/ivs/solicituds/{$aprobada->id}/edit")->assertForbidden();
+        $this->get("/ivs/solicituds/{$enRevision->id}")->assertOk();
+
+        foreach ([\App\Filament\Resources\Solicituds\SolicitudResource::class, \App\Filament\Resources\Users\UserResource::class, \App\Filament\Resources\Chips\ChipResource::class] as $recurso) {
+            foreach (["ViewAny", "Create", "DeleteAny"] as $accion) {
+                $this->assertSame($recurso::{"can".$accion}(), $recurso::{"get".$accion."AuthorizationResponse"}()->allowed(), "$recurso: $accion");
+            }
+        }
+
+        $admin = $this->usuario("admin");
+        $this->flushSession();
+        $this->actingAs($admin);
+        $this->assertFalse(\App\Filament\Resources\Solicituds\SolicitudResource::getDeleteAuthorizationResponse($aprobada)->allowed(), "una aprobada no se borra");
+        $this->get("/ivs/solicituds/{$aprobada->id}/edit")->assertOk();
+    }
 }

@@ -152,6 +152,7 @@ class AdminPanelProvider extends PanelProvider
                 'restrict.access',
                 \App\Http\Middleware\ExigirCambioPassword::class,
                 ExigirRegistroTaller::class,
+                \App\Http\Middleware\RespaldoDiario::class,
             ])
             ->plugins([
                 FilamentShieldPlugin::make(),

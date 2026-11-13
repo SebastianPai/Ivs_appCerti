@@ -28,6 +28,11 @@ class Archivo
         }
 
         // Archivo antiguo que aún no se ha movido al disco privado
-        return Storage::disk('public')->exists($ruta) ? Storage::disk('public')->url($ruta) : null;
+        if (Storage::disk('public')->exists($ruta)) {
+            return Storage::disk('public')->url($ruta);
+        }
+
+        // Se perdió en el servidor: la copia de Firebase
+        return Nube::url($ruta, now()->addMinutes(self::MINUTOS_ENLACE));
     }
 }

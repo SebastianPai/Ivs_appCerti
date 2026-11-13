@@ -25,6 +25,8 @@ use Illuminate\Support\Facades\Auth;
 /** Registro de auditoría: solo lectura y solo para el administrador. */
 class ActividadResource extends Resource
 {
+    use \App\Filament\Resources\Concerns\RespetaPermisosPropios;
+
     protected static ?string $model = Actividad::class;
 
     protected static ?string $slug = 'auditoria';

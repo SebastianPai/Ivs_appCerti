@@ -128,6 +128,12 @@ class User extends Authenticatable implements FilamentUser, HasAppAuthentication
      *
      * @return array<string, string>
      */
+    protected static function booted(): void
+    {
+        // El registro de Industria y Comercio también queda copiado en Firebase
+        static::saved(fn (self $user) => $user->wasChanged("camara_comercio") ? \App\Support\Nube::copiarDespues($user->camara_comercio) : null);
+    }
+
     protected function casts(): array
     {
         return [

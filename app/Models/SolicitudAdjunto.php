@@ -48,6 +48,15 @@ class SolicitudAdjunto extends Model
         };
     }
 
+    protected static function booted(): void
+    {
+        static::saved(function (self $adjunto) {
+            if ($adjunto->wasChanged('ruta_archivo') || $adjunto->wasRecentlyCreated) {
+                \App\Support\Nube::copiarDespues($adjunto->ruta_archivo);
+            }
+        });
+    }
+
     public function solicitud()
     {
         return $this->belongsTo(Solicitud::class);

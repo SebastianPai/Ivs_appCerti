@@ -30,6 +30,16 @@ return [
 
     'disks' => [
 
+        // Copia de los archivos y respaldos en Firebase Cloud Storage (ver App\Support\Nube).
+        // FIREBASE_CREDENTIALS: ruta al JSON de la cuenta de servicio, fuera de public_html.
+        'firebase' => [
+            'driver' => 'gcs',
+            'bucket' => env('FIREBASE_STORAGE_BUCKET'),
+            'key_file_path' => env('FIREBASE_CREDENTIALS'),
+            'prefix' => env('FIREBASE_STORAGE_PREFIX', ''),
+            'throw' => true,
+        ],
+
         'local' => [
             'driver' => 'local',
             'root' => storage_path('app/private'),

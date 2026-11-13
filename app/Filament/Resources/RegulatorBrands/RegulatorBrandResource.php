@@ -14,6 +14,8 @@ use Illuminate\Support\Facades\Auth;
 
 class RegulatorBrandResource extends Resource
 {
+    use \App\Filament\Resources\Concerns\RespetaPermisosPropios;
+
     protected static ?string $model = RegulatorBrand::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedAdjustmentsHorizontal;

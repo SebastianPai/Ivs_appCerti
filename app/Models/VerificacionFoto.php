@@ -28,6 +28,11 @@ class VerificacionFoto extends Model {
     protected $table = 'verificacion_fotos';
     protected $fillable = ['solicitud_verificacion_id', 'nombre_foto', 'ruta_foto'];
 
+    protected static function booted(): void
+    {
+        static::saved(fn (self $foto) => $foto->wasChanged('ruta_foto') || $foto->wasRecentlyCreated ? \App\Support\Nube::copiarDespues($foto->ruta_foto) : null);
+    }
+
     public function verificacion(): BelongsTo {
         return $this->belongsTo(SolicitudVerificacion::class, 'solicitud_verificacion_id');
     }
